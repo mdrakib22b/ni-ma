@@ -1,0 +1,17 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (only needed if you ever add tooling)
+node_modules/
+
+# Local env files — never commit keys (FINNHUB_KEY lives in Vercel env vars)
+.env
+.env.*
+*.local
+
+# Vercel CLI link metadata
+.vercel/

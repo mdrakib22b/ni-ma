@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  /* Self-hosted Geist (same variable-font file as the host app). When
+     onboarding is imported into index.html this duplicates the host's
+     @font-face harmlessly; declared here too so the flow is correct standalone. */
+  @font-face{
+    font-family:'Geist';font-style:normal;font-weight:100 900;font-display:swap;
+    src:url(./vendor/fonts/geist-variable.woff2) format('woff2');
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;background:#EDEBE4;overscroll-behavior:none;}
+  ::-webkit-scrollbar{display:none;}
+  @keyframes obUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes obFade{from{opacity:0;}to{opacity:1;}}
+  @keyframes obPop{from{opacity:0;transform:scale(.55);}to{opacity:1;transform:scale(1);}}
+  /* Desktop: a centred card on the page instead of a full-height phone column. */
+  @media (min-width:960px){
+    .ob-frame{max-width:500px !important;height:min(860px,calc(100dvh - 64px)) !important;
+      margin:max(32px,calc((100dvh - 860px) / 2)) auto 0 !important;border-radius:28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.35);}
+  }
+</style>
+</helmet>
+<div class="ob-frame" style="height:100dvh;width:100%;max-width:560px;margin:0 auto;position:relative;overflow:hidden;font-family:'Geist',-apple-system,system-ui;color:#1A1C1A;background:#EDEBE4;">
+
+  <!-- ============ WELCOME ============ -->
+  <sc-if value="{{ isWelcome }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;inset:0;background:#16463A;color:#EAF1EC;display:flex;flex-direction:column;padding:max(14px,env(safe-area-inset-top)) 26px max(40px,calc(24px + env(safe-area-inset-bottom)));">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;animation:obUp .5s ease;">
+      <div style="width:74px;height:74px;border-radius:22px;background:#EDEBE4;color:#16463A;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:720;letter-spacing:-.03em;margin-bottom:30px;">ni</div>
+      <div style="font-size:38px;font-weight:720;letter-spacing:-.03em;line-height:1.05;">Ni'ma.</div>
+    </div>
+    <button onClick="{{ startPrimary }}" style="width:100%;border:none;cursor:pointer;background:#EDEBE4;color:#16463A;border-radius:18px;padding:17px;font-family:inherit;font-size:16px;font-weight:720;letter-spacing:-.01em;">Get started</button>
+    <sc-if value="{{ canSync }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ startLocal }}" style="width:100%;margin-top:12px;border:none;cursor:pointer;background:rgba(0,0,0,.24);color:#EAF1EC;border-radius:18px;padding:17px;font-family:inherit;font-size:16px;font-weight:720;letter-spacing:-.01em;">Continue without an account</button>
+      <button onClick="{{ restore }}" style="display:block;margin:18px auto 0;border:none;background:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:720;letter-spacing:.12em;text-transform:uppercase;color:#9DBDB0;padding:8px 12px;">Already have an account?</button>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ============ DONE ============ -->
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;background:#16463A;color:#EAF1EC;display:flex;flex-direction:column;padding:max(14px,env(safe-area-inset-top)) 26px max(40px,calc(24px + env(safe-area-inset-bottom)));">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+      <div style="width:66px;height:66px;border-radius:33px;background:#4ED08A;display:flex;align-items:center;justify-content:center;margin-bottom:28px;animation:obPop .5s cubic-bezier(.34,1.56,.64,1);"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0E3327" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+      <div style="font-size:34px;font-weight:720;letter-spacing:-.02em;line-height:1.08;animation:obUp .5s ease .05s both;">You're all set,<br/>{{ nameOrThere }}.</div>
+      <div style="font-size:16px;font-weight:500;color:#9DBDB0;line-height:1.5;margin-top:14px;animation:obUp .5s ease .12s both;">Here's how Ni'ma is starting out for you.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:24px;animation:obUp .5s ease .18s both;">
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:600;color:#9DBDB0;flex:1;">Display currency</div>
+          <div style="font-size:15px;font-weight:720;">{{ currency }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:600;color:#9DBDB0;flex:1;">Accounts</div>
+          <div style="font-size:15px;font-weight:720;">{{ acctSummary }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:600;color:#9DBDB0;flex:1;">App passcode</div>
+          <div style="font-size:15px;font-weight:720;">{{ pinLabel }}</div>
+        </div>
+      </div>
+    </div>
+    <button onClick="{{ finish }}" style="width:100%;border:none;cursor:pointer;background:#EDEBE4;color:#16463A;border-radius:18px;padding:17px;font-family:inherit;font-size:16px;font-weight:720;letter-spacing:-.01em;">Enter Ni'ma</button>
+  </div>
+  </sc-if>
+
+  <!-- ============ MIDDLE STEPS ============ -->
+  <sc-if value="{{ isMid }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;">
+
+    <!-- header: back + progress -->
+    <div style="flex-shrink:0;padding:max(20px,env(safe-area-inset-top)) 22px 8px;display:flex;align-items:center;gap:14px;">
+      <button onClick="{{ back }}" style="width:34px;height:34px;border-radius:17px;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.05);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1C1A" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <div style="flex:1;display:flex;gap:6px;">
+        <sc-for list="{{ progSegs }}" as="s" hint-placeholder-count="5">
+          <div style="{{ s.style }}"></div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- scroll body -->
+    <div style="flex:1;overflow-y:auto;padding:16px 22px 8px;">
+
+      <!-- STEP: NAME -->
+      <sc-if value="{{ isName }}" hint-placeholder-val="{{ false }}">
+      <div style="animation:obUp .35s ease;">
+        <div style="font-size:30px;font-weight:720;letter-spacing:-.025em;line-height:1.08;">What should I<br/>call you?</div>
+        <div style="background:#fff;border-radius:18px;padding:18px 18px;margin-top:26px;box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="font-size:11.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:#9A9C92;">Your name</div>
+          <input value="{{ name }}" onChange="{{ onName }}" onInput="{{ onName }}" placeholder="e.g. Alex" style="width:100%;border:none;outline:none;background:none;font-family:inherit;font-size:22px;font-weight:720;letter-spacing:-.02em;color:#1A1C1A;margin-top:6px;" />
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- STEP: CURRENCY -->
+      <sc-if value="{{ isCurrency }}" hint-placeholder-val="{{ false }}">
+      <div style="animation:obUp .35s ease;">
+        <div style="font-size:30px;font-weight:720;letter-spacing:-.025em;line-height:1.08;">Your main<br/>currency</div>
+        <div style="font-size:15.5px;font-weight:500;color:#6E7066;line-height:1.5;margin-top:12px;">Everything is displayed in this currency, using live exchange rates.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:22px;">
+          <sc-for list="{{ currencyList }}" as="c" hint-placeholder-count="6">
+            <button onClick="{{ c.onPick }}" style="{{ c.rowStyle }}">
+              <div style="{{ c.symStyle }}">{{ c.symbol }}</div>
+              <div style="text-align:left;flex:1;min-width:0;">
+                <div style="font-size:15.5px;font-weight:720;letter-spacing:-.01em;">{{ c.code }}</div>
+                <div style="{{ c.subStyle }}">{{ c.name }}</div>
+              </div>
+              <sc-if value="{{ c.selected }}" hint-placeholder-val="{{ false }}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </sc-if>
+            </button>
+          </sc-for>
+          <button onClick="{{ openCurPicker }}" style="{{ otherRowStyle }}">
+            <div style="{{ otherSymStyle }}">
+              <sc-if value="{{ curIsOther }}" hint-placeholder-val="{{ false }}">{{ currency }}</sc-if>
+              <sc-if value="{{ curNotOther }}" hint-placeholder-val="{{ true }}">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6E7066" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              </sc-if>
+            </div>
+            <div style="text-align:left;flex:1;min-width:0;">
+              <div style="font-size:15.5px;font-weight:720;letter-spacing:-.01em;">{{ otherTitle }}</div>
+              <div style="{{ otherSubStyle }}">{{ otherSub }}</div>
+            </div>
+            <sc-if value="{{ curIsOther }}" hint-placeholder-val="{{ false }}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </sc-if>
+            <sc-if value="{{ curNotOther }}" hint-placeholder-val="{{ true }}">
+              <span style="color:#C8CABF;font-size:16px;font-weight:600;flex-shrink:0;">›</span>
+            </sc-if>
+          </button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- STEP: ACCOUNTS -->
+      <sc-if value="{{ isAccounts }}" hint-placeholder-val="{{ false }}">
+      <div style="animation:obUp .35s ease;">
+        <div style="font-size:30px;font-weight:720;letter-spacing:-.025em;line-height:1.08;">Your<br/>accounts</div>
+        <div style="font-size:15.5px;font-weight:500;color:#6E7066;line-height:1.5;margin-top:12px;">Chequing, savings, cards, debt. Round the balances, nobody's auditing you.</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:22px;">
+          <sc-for list="{{ accountRows }}" as="a" hint-placeholder-count="1">
+            <div style="background:#fff;border-radius:18px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,.04);">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="display:flex;gap:3px;background:#F1F0EA;border-radius:11px;padding:3px;flex:1;">
+                  <button onClick="{{ a.setChequing }}" style="{{ a.chqStyle }}">Chequing</button>
+                  <button onClick="{{ a.setSavings }}" style="{{ a.savStyle }}">Savings</button>
+                  <button onClick="{{ a.setInvesting }}" style="{{ a.invStyle }}">Investing</button>
+                </div>
+                <button onClick="{{ a.onRemove }}" style="width:28px;height:28px;border-radius:14px;border:none;background:#F1F0EA;cursor:pointer;color:#8A8C82;font-size:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;" aria-label="Remove account">✕</button>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:13px;">
+                <div style="flex:1.5;min-width:0;">
+                  <div style="font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:#9A9C92;">Account name</div>
+                  <input value="{{ a.name }}" onChange="{{ a.onName }}" onInput="{{ a.onName }}" placeholder="e.g. RBC Chequing" style="width:100%;border:none;outline:none;background:none;font-family:inherit;font-size:15.5px;font-weight:650;letter-spacing:-.01em;color:#1A1C1A;margin-top:4px;" />
+                </div>
+                <div style="flex:1;min-width:0;border-left:1px solid #F0EEE6;padding-left:12px;">
+                  <div style="font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:#9A9C92;">Balance</div>
+                  <div style="display:flex;align-items:baseline;margin-top:4px;">
+                    <span style="font-size:14px;font-weight:720;color:#9A9C92;">$</span>
+                    <input value="{{ a.bal }}" onChange="{{ a.onBal }}" onInput="{{ a.onBal }}" inputmode="decimal" placeholder="0.00" style="width:100%;border:none;outline:none;background:none;font-family:inherit;font-size:15.5px;font-weight:650;letter-spacing:-.01em;color:#1A1C1A;" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+          <button onClick="{{ addAccount }}" style="width:100%;border:1.5px dashed #C4C6BB;background:transparent;cursor:pointer;font-family:inherit;color:#6E7066;font-size:14.5px;font-weight:650;border-radius:16px;padding:15px;">+ Add an account</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- STEP: PERMISSIONS -->
+      <sc-if value="{{ isPerms }}" hint-placeholder-val="{{ false }}">
+      <div style="animation:obUp .35s ease;">
+        <div style="font-size:30px;font-weight:720;letter-spacing:-.025em;line-height:1.08;">Lock &amp;<br/>reminders</div>
+        <div style="background:#fff;border-radius:20px;padding:4px 18px;margin-top:22px;box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid #F0EEE6;">
+            <div style="width:36px;height:36px;border-radius:11px;background:#EAF1EC;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C5D4C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.6"/></svg></div>
+            <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:650;">App passcode</div></div>
+            <button onClick="{{ togglePin }}" style="{{ pinTrack }}"><div style="{{ pinKnob }}"></div></button>
+          </div>
+          <sc-if value="{{ pinOn }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:4px 0 16px;border-bottom:1px solid #F0EEE6;animation:obFade .25s ease;">
+            <div style="font-size:11.5px;font-weight:600;color:#9A9C92;margin-bottom:12px;line-height:1.45;">This passcode can't be reset. Lose it and the data on this phone is gone.</div>
+            <input type="password" autocomplete="new-password" value="{{ pin1 }}" onInput="{{ onPin1 }}" placeholder="New passcode (6+ characters)" aria-label="New passcode" style="width:100%;border:none;outline:none;background:#F6F5EF;color:#1A1C1A;border-radius:13px;padding:13px 14px;font-family:inherit;font-size:15px;font-weight:650;" />
+            <input type="password" autocomplete="new-password" value="{{ pin2 }}" onInput="{{ onPin2 }}" placeholder="Repeat passcode" aria-label="Repeat passcode" style="width:100%;border:none;outline:none;background:#F6F5EF;color:#1A1C1A;border-radius:13px;padding:13px 14px;font-family:inherit;font-size:15px;font-weight:650;margin-top:9px;" />
+            <sc-if value="{{ pinHasErr }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:10px;font-size:12.5px;font-weight:650;color:#B0432F;">{{ pinErr }}</div>
+            </sc-if>
+          </div>
+          </sc-if>
+          <div style="display:flex;align-items:center;gap:12px;padding:16px 0;">
+            <div style="width:36px;height:36px;border-radius:11px;background:#EAF1EC;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C5D4C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
+            <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:650;">Reminders</div></div>
+            <button onClick="{{ toggleNotif }}" style="{{ notifTrack }}"><div style="{{ notifKnob }}"></div></button>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+
+    <!-- footer continue -->
+    <div style="flex-shrink:0;padding:12px 22px max(30px,calc(14px + env(safe-area-inset-bottom)));">
+      <button onClick="{{ next }}" style="{{ continueStyle }}">{{ continueLabel }}</button>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ CURRENCY PICKER ============ -->
+  <sc-if value="{{ showCurPicker }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end;">
+    <div onClick="{{ closeCurPicker }}" style="position:absolute;inset:0;background:rgba(20,22,20,.4);animation:obFade .2s ease;"></div>
+    <div style="position:relative;background:#F4F2EC;border-radius:30px 30px 0 0;padding:10px 20px 0;box-shadow:0 -10px 40px -10px rgba(0,0,0,.3);height:82%;display:flex;flex-direction:column;">
+      <div style="width:40px;height:5px;border-radius:3px;background:#CFCDBF;margin:0 auto 14px;flex-shrink:0;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+        <div style="font-size:20px;font-weight:720;letter-spacing:-.02em;">All currencies</div>
+        <button onClick="{{ closeCurPicker }}" style="width:32px;height:32px;border-radius:16px;border:none;background:#E7E5DC;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6E7066;font-size:16px;" aria-label="Close">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:11px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);flex-shrink:0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C92" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input value="{{ curSearch }}" onChange="{{ onCurSearch }}" onInput="{{ onCurSearch }}" placeholder="Search by name or code" style="flex:1;min-width:0;border:none;outline:none;background:none;font-family:inherit;font-size:15px;font-weight:600;color:#1A1C1A;" />
+        <sc-if value="{{ curSearchHas }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ clearCurSearch }}" style="border:none;background:#EDEBE2;width:22px;height:22px;border-radius:11px;cursor:pointer;color:#6E7066;font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✕</button>
+        </sc-if>
+      </div>
+      <div style="flex:1;overflow-y:auto;margin-top:12px;padding-bottom:24px;">
+        <sc-if value="{{ curPickHasResults }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#fff;border-radius:18px;padding:2px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);">
+            <sc-for list="{{ allCurrencyList }}" as="c" hint-placeholder-count="12">
+              <button onClick="{{ c.onPick }}" style="{{ c.rowStyle }}">
+                <div style="width:44px;flex-shrink:0;font-size:15px;font-weight:720;color:#1A1C1A;text-align:left;">{{ c.symbol }}</div>
+                <div style="text-align:left;flex:1;min-width:0;">
+                  <div style="font-size:15px;font-weight:720;letter-spacing:-.01em;">{{ c.code }}</div>
+                  <div style="font-size:12.5px;font-weight:500;color:#9A9C92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</div>
+                </div>
+                <sc-if value="{{ c.selected }}" hint-placeholder-val="{{ false }}">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C5D4C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg>
+                </sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ curPickNoResults }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border-radius:18px;padding:26px 20px;box-shadow:0 1px 2px rgba(0,0,0,.04);text-align:center;">
+            <div style="font-size:14.5px;font-weight:650;color:#1A1C1A;">No currency matches "{{ curSearch }}"</div>
+            <div style="font-size:12.5px;font-weight:500;color:#9A9C92;margin-top:5px;">Try a code like USD or a country name.</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { step:0, wantAccount:false, name:'', currency:'CAD', notif:true,
+    pin:false, pin1:'', pin2:'', pinErr:'',
+    showCurPicker:false, curSearch:'', accounts: [] };
+
+  allCurDefs(){
+    return [
+      ['AED','UAE dirham','\u062F.\u0625'],['AFN','Afghan afghani','\u060B'],['ALL','Albanian lek','L'],['AMD','Armenian dram','\u058F'],['ANG','Neth. Antillean guilder','\u0192'],['AOA','Angolan kwanza','Kz'],['ARS','Argentine peso','$'],['AUD','Australian dollar','$'],['AWG','Aruban florin','\u0192'],['AZN','Azerbaijani manat','\u20BC'],
+      ['BAM','Bosnia-Herzegovina mark','KM'],['BBD','Barbadian dollar','$'],['BDT','Bangladeshi taka','\u09F3'],['BGN','Bulgarian lev','\u043B\u0432'],['BHD','Bahraini dinar','.\u062F.\u0628'],['BIF','Burundian franc','FBu'],['BMD','Bermudian dollar','$'],['BND','Brunei dollar','$'],['BOB','Bolivian boliviano','Bs.'],['BRL','Brazilian real','R$'],['BSD','Bahamian dollar','$'],['BTN','Bhutanese ngultrum','Nu.'],['BWP','Botswana pula','P'],['BYN','Belarusian ruble','Br'],['BZD','Belize dollar','$'],
+      ['CAD','Canadian dollar','$'],['CDF','Congolese franc','FC'],['CHF','Swiss franc','CHF'],['CLP','Chilean peso','$'],['CNY','Chinese yuan','\u00A5'],['COP','Colombian peso','$'],['CRC','Costa Rican col\u00F3n','\u20A1'],['CUP','Cuban peso','$'],['CVE','Cape Verdean escudo','$'],['CZK','Czech koruna','K\u010D'],
+      ['DJF','Djiboutian franc','Fdj'],['DKK','Danish krone','kr'],['DOP','Dominican peso','RD$'],['DZD','Algerian dinar','\u062F.\u062C'],
+      ['EGP','Egyptian pound','\u00A3'],['ERN','Eritrean nakfa','Nfk'],['ETB','Ethiopian birr','Br'],['EUR','Euro','\u20AC'],
+      ['FJD','Fijian dollar','$'],['FKP','Falkland Islands pound','\u00A3'],
+      ['GBP','British pound','\u00A3'],['GEL','Georgian lari','\u20BE'],['GHS','Ghanaian cedi','\u20B5'],['GIP','Gibraltar pound','\u00A3'],['GMD','Gambian dalasi','D'],['GNF','Guinean franc','FG'],['GTQ','Guatemalan quetzal','Q'],['GYD','Guyanese dollar','$'],
+      ['HKD','Hong Kong dollar','$'],['HNL','Honduran lempira','L'],['HRK','Croatian kuna','kn'],['HTG','Haitian gourde','G'],['HUF','Hungarian forint','Ft'],
+      ['IDR','Indonesian rupiah','Rp'],['ILS','Israeli shekel','\u20AA'],['INR','Indian rupee','\u20B9'],['IQD','Iraqi dinar','\u0639.\u062F'],['IRR','Iranian rial','\uFDFC'],['ISK','Icelandic kr\u00F3na','kr'],
+      ['JMD','Jamaican dollar','$'],['JOD','Jordanian dinar','\u062F.\u0627'],['JPY','Japanese yen','\u00A5'],
+      ['KES','Kenyan shilling','KSh'],['KGS','Kyrgyzstani som','\u0441\u043E\u043C'],['KHR','Cambodian riel','\u17DB'],['KMF','Comorian franc','CF'],['KRW','South Korean won','\u20A9'],['KWD','Kuwaiti dinar','\u062F.\u0643'],['KYD','Cayman Islands dollar','$'],['KZT','Kazakhstani tenge','\u20B8'],
+      ['LAK','Lao kip','\u20AD'],['LBP','Lebanese pound','\u00A3'],['LKR','Sri Lankan rupee','\u20A8'],['LRD','Liberian dollar','$'],['LSL','Lesotho loti','L'],['LYD','Libyan dinar','\u0644.\u062F'],
+      ['MAD','Moroccan dirham','\u062F.\u0645'],['MDL','Moldovan leu','L'],['MGA','Malagasy ariary','Ar'],['MKD','Macedonian denar','\u0434\u0435\u043D'],['MMK','Myanmar kyat','K'],['MNT','Mongolian t\u00F6gr\u00F6g','\u20AE'],['MOP','Macanese pataca','P'],['MRU','Mauritanian ouguiya','UM'],['MUR','Mauritian rupee','\u20A8'],['MVR','Maldivian rufiyaa','.\u0783'],['MWK','Malawian kwacha','MK'],['MXN','Mexican peso','$'],['MYR','Malaysian ringgit','RM'],['MZN','Mozambican metical','MT'],
+      ['NAD','Namibian dollar','$'],['NGN','Nigerian naira','\u20A6'],['NIO','Nicaraguan c\u00F3rdoba','C$'],['NOK','Norwegian krone','kr'],['NPR','Nepalese rupee','\u20A8'],['NZD','New Zealand dollar','$'],
+      ['OMR','Omani rial','\u0631.\u0639.'],
+      ['PAB','Panamanian balboa','B/.'],['PEN','Peruvian sol','S/'],['PGK','Papua New Guinean kina','K'],['PHP','Philippine peso','\u20B1'],['PKR','Pakistani rupee','\u20A8'],['PLN','Polish z\u0142oty','z\u0142'],['PYG','Paraguayan guaran\u00ED','\u20B2'],
+      ['QAR','Qatari riyal','\u0631.\u0642'],
+      ['RON','Romanian leu','lei'],['RSD','Serbian dinar','\u0434\u0438\u043D'],['RUB','Russian ruble','\u20BD'],['RWF','Rwandan franc','FRw'],
+      ['SAR','Saudi riyal','\u0631.\u0633'],['SBD','Solomon Islands dollar','$'],['SCR','Seychellois rupee','\u20A8'],['SDG','Sudanese pound','\u062C.\u0633.'],['SEK','Swedish krona','kr'],['SGD','Singapore dollar','$'],['SHP','Saint Helena pound','\u00A3'],['SLL','Sierra Leonean leone','Le'],['SOS','Somali shilling','Sh'],['SRD','Surinamese dollar','$'],['SSP','South Sudanese pound','\u00A3'],['STN','S\u00E3o Tom\u00E9 dobra','Db'],['SYP','Syrian pound','\u00A3'],['SZL','Eswatini lilangeni','L'],
+      ['THB','Thai baht','\u0E3F'],['TJS','Tajikistani somoni','SM'],['TMT','Turkmenistani manat','m'],['TND','Tunisian dinar','\u062F.\u062A'],['TOP','Tongan pa\u02BBanga','T$'],['TRY','Turkish lira','\u20BA'],['TTD','Trinidad & Tobago dollar','$'],['TWD','New Taiwan dollar','NT$'],['TZS','Tanzanian shilling','TSh'],
+      ['UAH','Ukrainian hryvnia','\u20B4'],['UGX','Ugandan shilling','USh'],['USD','US dollar','$'],['UYU','Uruguayan peso','$'],['UZS','Uzbekistani som','so\u02BCm'],
+      ['VES','Venezuelan bol\u00EDvar','Bs.'],['VND','Vietnamese \u0111\u1ED3ng','\u20AB'],['VUV','Vanuatu vatu','VT'],
+      ['WST','Samoan tala','T'],
+      ['XAF','Central African CFA franc','FCFA'],['XCD','East Caribbean dollar','$'],['XOF','West African CFA franc','CFA'],['XPF','CFP franc','\u20A3'],
+      ['YER','Yemeni rial','\uFDFC'],
+      ['ZAR','South African rand','R'],['ZMW','Zambian kwacha','ZK'],['ZWL','Zimbabwean dollar','$']
+    ].map(a=>({ code:a[0], name:a[1], symbol:a[2] }));
+  }
+  openCurPicker(){ this.setState({ showCurPicker:true, curSearch:'' }); }
+  closeCurPicker(){ this.setState({ showCurPicker:false }); }
+  pickCurrency(code){ this.setState({ currency:code, showCurPicker:false }); }
+
+  // step order: 0 welcome, 1 name, 2 currency, 3 accounts, 4 perms, 5 done
+  next(){
+    this.setState(s=>{
+      // Leaving the perms step with a passcode turned on: validate before advancing.
+      if(s.step===4 && s.pin){
+        if((s.pin1||'').length<6) return { pinErr:'Use at least 6 characters.' };
+        if(s.pin1!==s.pin2) return { pinErr:"Passcodes don't match." };
+      }
+      return { step: Math.min(5, s.step+1), pinErr:'' };
+    });
+  }
+  // Lets the host start setup for a new account it signed up outside the welcome
+  // buttons (an email confirmation link opened on a device that isn't set up).
+  componentDidMount(){
+    if(typeof this.props.onRegister === 'function') this.props.onRegister({ setup:()=>this.setState({ wantAccount:true, step:1, pinErr:'' }) });
+  }
+  viaAccount(mode){
+    if(typeof this.props.onAccount !== 'function') return;
+    Promise.resolve(this.props.onAccount(mode)).then(r=>{
+      if(r==='setup') this.setState({ wantAccount:true, step:1, pinErr:'' });
+    });
+  }
+  back(){ this.setState(s=>({ step: Math.max(0, s.step-1) })); }
+
+  // ---- optional starter accounts (name + balance per section) ----
+  addAccount(){ this.setState(s=>({ accounts:[...s.accounts, { section:'chequing', name:'', bal:'' }] })); }
+  removeAccount(i){ this.setState(s=>({ accounts:s.accounts.filter((a,j)=>j!==i) })); }
+  setAccount(i, patch){ this.setState(s=>({ accounts:s.accounts.map((a,j)=>j===i?{...a,...patch}:a) })); }
+  cleanAccounts(){
+    return this.state.accounts
+      .filter(a=>String(a.name||'').trim())
+      .map(a=>({ section:a.section||'chequing', name:String(a.name).trim(),
+        bal: Math.round((parseFloat(String(a.bal).replace(/[^0-9.]/g,''))||0)*100)/100 }));
+  }
+
+  // Hand the collected answers to the host app (index.html passes onDone).
+  // Standalone (opened directly, no host) falls back to looping the demo.
+  finish(){
+    const st = this.state;
+    if(typeof this.props.onDone === 'function'){
+      this.props.onDone({
+        name: (st.name||'').trim(),
+        currency: st.currency,
+        notif: !!st.notif,
+        passcode: (st.pin && (st.pin1||'').length>=6 && st.pin1===st.pin2) ? st.pin1 : '',
+        accounts: this.cleanAccounts()
+      });
+    } else {
+      this.setState({ step:0 });
+    }
+  }
+
+  swTrack(on){ return { width:48, height:29, borderRadius:15, border:'none', cursor:'pointer', padding:2,
+    background:on?'#1C5D4C':'#D4D2C8', display:'flex', justifyContent: on?'flex-end':'flex-start', transition:'background .18s ease', flexShrink:0 }; }
+  swKnob(){ return { width:25, height:25, borderRadius:13, background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.25)' }; }
+
+  renderVals(){
+    const st = this.state;
+    const A='#1C5D4C';
+    const step = st.step;
+
+    // currency data
+    const curs = [
+      { code:'CAD', name:'Canadian dollar', symbol:'$' },
+      { code:'USD', name:'US dollar', symbol:'$' },
+      { code:'EUR', name:'Euro', symbol:'\u20AC' },
+      { code:'GBP', name:'British pound', symbol:'\u00A3' },
+      { code:'AUD', name:'Australian dollar', symbol:'$' }
+    ];
+    const currencyList = curs.map(c=>{
+      const sel = st.currency===c.code;
+      return { code:c.code, name:c.name, symbol:c.symbol, selected:sel,
+        onPick:()=>this.setState({ currency:c.code }),
+        rowStyle:{ display:'flex', alignItems:'center', gap:13, width:'100%', textAlign:'left', fontFamily:'inherit', cursor:'pointer',
+          border: sel?'1.5px solid '+A:'1.5px solid transparent', background: sel?'#16463A':'#fff', color: sel?'#fff':'#1A1C1A',
+          borderRadius:16, padding:'14px 16px', boxShadow:'0 1px 2px rgba(0,0,0,.04)', transition:'all .15s ease' },
+        symStyle:{ width:34, height:34, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:16, fontWeight:720, background: sel?'rgba(255,255,255,.16)':'#F1F0EA', color: sel?'#EAF1EC':'#6E7066' },
+        subStyle:{ fontSize:12.5, fontWeight:500, marginTop:1, color: sel?'#9DBDB0':'#9A9C92' } };
+    });
+
+    // "Other" row + full picker
+    const topCodes = curs.map(c=>c.code);
+    const curIsOther = !topCodes.includes(st.currency);
+    const allDefs = this.allCurDefs();
+    const selDef = allDefs.find(c=>c.code===st.currency);
+    const otherRowSel = curIsOther;
+    const q = (st.curSearch||'').trim().toLowerCase();
+    const allFiltered = (q ? allDefs.filter(c=>c.code.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)) : allDefs);
+    const allCurrencyList = allFiltered.map((c,i)=>({
+      code:c.code, name:c.name, symbol:c.symbol, selected: st.currency===c.code,
+      onPick:()=>this.pickCurrency(c.code),
+      rowStyle:{ display:'flex', alignItems:'center', gap:8, width:'100%', textAlign:'left', fontFamily:'inherit', cursor:'pointer',
+        border:'none', background:'none', padding:'13px 2px', borderTop: i===0?'none':'1px solid #F0EEE6' }
+    }));
+
+    // progress segments (steps 1..4 -> 4 segments)
+    const progSegs = [1,2,3,4].map(i=>({
+      style:{ flex:1, height:5, borderRadius:3, background: step>=i ? A : '#D9D7CD', transition:'background .2s ease' }
+    }));
+
+    // starter accounts step
+    const acctSecBtn = on => ({ flex:1, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:12.5, fontWeight:720,
+      letterSpacing:'-.01em', padding:'8px 0', borderRadius:9, background: on?'#fff':'transparent', color: on?'#1A1C1A':'#8A8C82',
+      boxShadow: on?'0 1px 3px rgba(0,0,0,.1)':'none', transition:'all .15s ease' });
+    const accountRows = st.accounts.map((a,i)=>({
+      name:a.name, bal:a.bal,
+      onName:(e)=>this.setAccount(i,{name:e.target.value}),
+      onBal:(e)=>this.setAccount(i,{bal:e.target.value}),
+      onRemove:()=>this.removeAccount(i),
+      setChequing:()=>this.setAccount(i,{section:'chequing'}),
+      setSavings:()=>this.setAccount(i,{section:'savings'}),
+      setInvesting:()=>this.setAccount(i,{section:'investing'}),
+      chqStyle:acctSecBtn(a.section==='chequing'),
+      savStyle:acctSecBtn(a.section==='savings'),
+      invStyle:acctSecBtn(a.section==='investing')
+    }));
+    const acctCount = this.cleanAccounts().length;
+
+    const nm=(st.name||'').trim();
+    return {
+      isWelcome: step===0,
+      canSync: !!this.props.canSync,
+      // With sync, "Get started" creates the account first and "Already have an
+      // account?" signs in, both in the host's account sheet over this screen.
+      // Setup only runs for a new account; an existing one opens straight into
+      // its synced data. "Continue without an account" is the local-only path
+      // (and the only one without sync).
+      startPrimary:()=>this.props.canSync ? this.viaAccount('signup') : this.next(),
+      startLocal:()=>this.setState({ wantAccount:false }, ()=>this.next()),
+      restore: ()=>this.viaAccount('signin'),
+      isDone: step===5,
+      isMid: step>=1 && step<=4,
+      isName: step===1,
+      isCurrency: step===2,
+      isAccounts: step===3,
+      isPerms: step===4,
+
+
+      accountRows,
+      addAccount:()=>this.addAccount(),
+      acctSummary: acctCount===0 ? 'Add later' : (acctCount+' account'+(acctCount===1?'':'s')),
+
+      next:()=>this.next(), back:()=>this.back(), finish:()=>this.finish(),
+
+      name: st.name, onName:(e)=>this.setState({ name:e.target.value }),
+      nameOrThere: nm || 'there',
+
+      currency: st.currency, currencyList,
+      curIsOther, curNotOther: !curIsOther,
+      otherTitle: curIsOther ? st.currency : 'Other',
+      otherSub: curIsOther ? (selDef ? selDef.name : 'Custom currency') : 'All world currencies',
+      openCurPicker:()=>this.openCurPicker(), closeCurPicker:()=>this.closeCurPicker(),
+      showCurPicker: st.showCurPicker,
+      curSearch: st.curSearch||'', curSearchHas: !!(st.curSearch||'').trim(),
+      onCurSearch:(e)=>this.setState({ curSearch:e.target.value }),
+      clearCurSearch:()=>this.setState({ curSearch:'' }),
+      allCurrencyList, curPickHasResults: allCurrencyList.length>0, curPickNoResults: allCurrencyList.length===0,
+      otherRowStyle:{ display:'flex', alignItems:'center', gap:13, width:'100%', textAlign:'left', fontFamily:'inherit', cursor:'pointer',
+        border: otherRowSel?'1.5px solid '+A:'1.5px solid transparent', background: otherRowSel?'#16463A':'#fff', color: otherRowSel?'#fff':'#1A1C1A',
+        borderRadius:16, padding:'14px 16px', boxShadow:'0 1px 2px rgba(0,0,0,.04)', transition:'all .15s ease' },
+      otherSymStyle:{ width:34, height:34, borderRadius:11, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+        fontSize:14, fontWeight:720, background: otherRowSel?'rgba(255,255,255,.16)':'#F1F0EA', color: otherRowSel?'#EAF1EC':'#6E7066' },
+      otherSubStyle:{ fontSize:12.5, fontWeight:500, marginTop:1, color: otherRowSel?'#9DBDB0':'#9A9C92' },
+
+
+      togglePin:()=>this.setState(s=>({ pin:!s.pin, pinErr:'', ...(s.pin?{pin1:'',pin2:''}:{}) })),
+      pinTrack: this.swTrack(st.pin), pinKnob: this.swKnob(), pinOn: st.pin,
+      pin1: st.pin1, pin2: st.pin2,
+      onPin1:(e)=>this.setState({ pin1:e.target.value, pinErr:'' }),
+      onPin2:(e)=>this.setState({ pin2:e.target.value, pinErr:'' }),
+      pinErr: st.pinErr||'', pinHasErr: !!(st.pinErr||''),
+      pinLabel: st.pin ? 'On' : 'Off',
+      toggleNotif:()=>this.setState(s=>({ notif:!s.notif })),
+      notifTrack: this.swTrack(st.notif), notifKnob: this.swKnob(),
+
+      progSegs,
+
+      continueLabel: step===4 ? 'Finish setup'
+        : (step===3 && st.accounts.length===0) ? 'Skip for now'
+        : 'Continue',
+      continueStyle: { width:'100%', border:'none', cursor:'pointer', background:A, color:'#fff', borderRadius:18, padding:'17px',
+        fontFamily:'inherit', fontSize:16, fontWeight:720, letterSpacing:'-.01em', boxShadow:'0 12px 28px -14px rgba(28,93,76,.9)' }
+    };
+  }
+}
+</script>
+</body>
+</html>
