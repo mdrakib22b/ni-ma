@@ -73,7 +73,9 @@ address bar) gives a standalone, full-screen app that also works offline.
   no CORS by default (same-origin); cross-origin callers must be allowlisted
   via the `ALLOWED_ORIGIN` env var. The Finnhub key stays server-side.
 - **Service worker** never caches `/api/` responses or non-OK responses, and
-  only falls back to the app shell for navigations.
+  only falls back to the app shell for navigations. The onboarding background
+  film (MP4) and any byte-range/video request always stream from the network
+  and are never cached; offline, the welcome screen shows its poster image.
 - There is no Face ID / biometric unlock — the passcode lock above is the
   enforced protection.
 
@@ -84,6 +86,10 @@ address bar) gives a standalone, full-screen app that also works offline.
   App logic lives in the `<script data-dc-script>` block near the bottom.
 - `Onboarding.dc.html` — the first-launch flow, loaded as a sibling component
   and gated behind the persisted `hasOnboarded` flag.
+- `onboarding-intro/` — the welcome screen's logo entrance (a small Web
+  Animations controller + CSS), the white logo, a poster image and the silent
+  looping background film. Reduced motion shows the static welcome and never
+  loads the film.
 - `support.js` — rendering runtime for the template. No build step.
 - `vendor/` — self-hosted React/ReactDOM and the Geist variable font (SIL OFL)
   (all precached by the service worker; no runtime CDN).
@@ -94,7 +100,8 @@ address bar) gives a standalone, full-screen app that also works offline.
 - `sw.js` — service worker: precaches the app shell, serves it offline, and
   always bypasses the cache for `/api/` so quotes stay fresh. Bump `CACHE`
   (`nimah-vN`) whenever you change cached assets.
-- `icon-*.png`, `apple-touch-icon.png` — app icons (incl. a maskable icon).
+- `icon-*.png`, `apple-touch-icon.png`, `favicon.svg`, `favicon-32.png` — app
+  icons and favicons (the "open fold" symbol; incl. maskable icons).
 - `api/quotes.mjs` — **server-side** price proxy (Vercel / Netlify / Cloudflare).
   Keeps your Finnhub key off the client. Must stay `.mjs`: the repo is
   `type:module`, so a `.js` handler is loaded as ESM and crashes on Vercel.

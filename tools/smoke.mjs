@@ -251,22 +251,17 @@ try {
   check(mani.shortcuts >= 2, `manifest declares app shortcuts (${mani.shortcuts})`);
   check(await page.getByText('Demo data · start fresh').count() > 0, 'Home shows a Demo-data pill while running on seed data');
 
-  // Home carousels: the Investments/Debt account rows must be real scroll
-  // containers that are NOT nested inside a <button> — a scrollable region
-  // inside a button is not touch-scrollable in WebKit, which is what froze
-  // these rows while the Savings-goals row (a plain div scroller) worked.
-  const carousels = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('div')]
-      .filter((d) => getComputedStyle(d).overflowX === 'auto' && d.childElementCount > 1);
-    const named = (label) => rows.find((d) => (d.textContent || '').includes(label));
-    const probe = (d) => (d ? { found: true, inButton: !!d.closest('button'), kids: d.childElementCount } : { found: false });
-    return { goals: probe(named('Emergency savings')), invest: probe(named('Questrade')), debt: probe(named('Everyday Visa')) };
+  // Home lists: goals, brokerages and debts are rows with dividers inside one
+  // card each (they used to be scrollers of nested tiles).
+  const homeLists = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('.hg-b .list-card')];
+    const rowsIn = (label) => { const c = cards.find((d) => (d.textContent || '').includes(label)); return c ? c.querySelectorAll(':scope > button').length : 0; };
+    const nestedTiles = cards.some((c) => [...c.querySelectorAll('div')].some((d) => getComputedStyle(d).overflowX === 'auto'));
+    return { goals: rowsIn('Emergency savings'), invest: rowsIn('Questrade'), debt: rowsIn('Everyday Visa'), nestedTiles };
   });
-  check(carousels.goals.found && !carousels.goals.inButton, 'Home: Savings goals row is a plain scroll container');
-  check(carousels.invest.found && !carousels.invest.inButton,
-    `Home: Investments account row scrolls side-to-side (not trapped in a <button>)`);
-  check(carousels.debt.found && !carousels.debt.inButton,
-    'Home: Debt card row scrolls side-to-side (not trapped in a <button>)');
+  check(homeLists.goals >= 2 && homeLists.invest >= 3 && homeLists.debt >= 3 && !homeLists.nestedTiles,
+    `Home: goals, brokerages and debts are rows in one card each, not nested tile scrollers (${JSON.stringify(homeLists)})`);
+  check(await page.locator('.hg-a circle[stroke-dasharray]').count() === 0, 'Home: the net-worth hero carries no composition donut');
   // the account tiles are now buttons of their own — tapping one still opens Invest
   await page.getByRole('button', { name: /Questrade/ }).first().click();
   await page.waitForTimeout(400);
@@ -349,13 +344,14 @@ try {
     const vis = el => el.offsetParent !== null;
     const head = t => [...document.querySelectorAll('div')].find(d => vis(d) && d.childElementCount === 0 && d.textContent.trim() === t);
     const y = t => { const el = head(t); return el ? el.getBoundingClientRect().top : null; };
-    return { cats: y('Categories'), inc: y('Income'), trend: y('Spending trend'), spent: y('Spent'), planned: y('Planned') };
+    const bar = document.querySelector('[role=progressbar][aria-label="Spent of planned"]');
+    return { cats: y('Categories'), inc: y('Income'), trend: y('Spending trend'), spent: bar && vis(bar) ? bar.getBoundingClientRect().top : null };
   });
-  check(budgetOrder.cats != null && budgetOrder.spent != null && budgetOrder.planned != null
+  check(budgetOrder.cats != null && budgetOrder.spent != null
     && budgetOrder.spent < budgetOrder.cats
     && (budgetOrder.inc == null || budgetOrder.cats < budgetOrder.inc)
     && (budgetOrder.trend == null || budgetOrder.cats < budgetOrder.trend),
-    `Budget › This month: Spent/Planned summary, then Categories ahead of Income and the trend (${JSON.stringify(budgetOrder)})`);
+    `Budget › This month: the Left to spend summary, then Categories ahead of Income and the trend (${JSON.stringify(budgetOrder)})`);
   await page.getByRole('button', { name: 'Entries', exact: true }).click(); await page.waitForTimeout(500);
   await page.locator('input[placeholder="Search entries"]').fill('payroll'); await page.waitForTimeout(400);
   check(await page.locator('text=Payroll').count() > 0, 'ledger search finds entries by note ("payroll" -> Payroll rows)');
@@ -922,8 +918,8 @@ try {
     `dark: the self-hosted Geist loads and headings use the calmer weight (${dk.font} · loaded ${dk.loaded} · ${dk.secW})`);
   await thp.evaluate(() => localStorage.setItem('nima_theme', 'light'));
   const lt = await themeLook();
-  check(lt.solid === '#1c5d4c' && lt.on === 'rgb(255, 255, 255)' && /^"?Geist/.test(lt.font || '') && lt.secW === '650',
-    `light mode keeps its green and white-on-green, in Geist at the stepped-down heading weight (${lt.solid} / ${lt.on} · ${lt.secW})`);
+  check(lt.solid === '#1c5d4c' && lt.on === 'rgb(255, 255, 255)' && /^"?Geist/.test(lt.font || '') && lt.secW === '600',
+    `light mode keeps its green and white-on-green, in Geist with semibold section titles (${lt.solid} / ${lt.on} · ${lt.secW})`);
   await themeCtx.close();
 
   console.log('empty account reads honestly (no fake gains, intentional empty states):'); {
@@ -991,9 +987,10 @@ try {
   await scp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
   await scp.getByRole('button', { name: 'Invest', exact: true }).click(); await scp.waitForTimeout(400);
   await scp.getByRole('button', { name: 'Sectors', exact: true }).click(); await scp.waitForTimeout(400);
-  const secBadge = (t) => scp.evaluate((tx) => [...document.querySelectorAll('span')].some((s) => s.textContent.trim() === tx), t);
-  check(await secBadge('FIN'), 'a held ETF is unpacked to its constituents\' sector (VTI -> Finance)');
-  check(await secBadge('TECH'), 'the direct stock keeps its own sector (AAPL -> Technology)');
+  // the allocation legend rows carry the sector names beside the donut
+  const secBadge = (t) => scp.evaluate((tx) => [...document.querySelectorAll('span')].some((s) => s.offsetParent !== null && s.textContent.trim() === tx), t);
+  check(await secBadge('Finance'), 'a held ETF is unpacked to its constituents\' sector (VTI -> Finance)');
+  check(await secBadge('Technology'), 'the direct stock keeps its own sector (AAPL -> Technology)');
   check(!(await secBadge('ETF')), 'ETF is no longer shown as a sector once the breakdown is loaded');
   await scCtx.close();
 
@@ -1119,7 +1116,7 @@ try {
   check(await ep.evaluate(() => JSON.parse(localStorage.getItem('nima_data_v1')).data.acctSections.chequing.accounts[0].bal) === 900,
     'an excluded expense still moves the account balance (1000 -> 900)');
   await ep.getByRole('button', { name: 'Budget', exact: true }).click(); await ep.waitForTimeout(500);
-  check(await ep.locator('text=/\\$0\\s*\\/\\s*\\$500/').count() > 0, 'the excluded expense does NOT count toward budget spending ($0 / $500)');
+  check(await ep.locator('text=/\\$0\\s*of\\s*\\$500/').count() > 0, 'the excluded expense does NOT count toward budget spending ($0 of $500)');
   await exclCtx.close();
 
   console.log('transfer source account:');
@@ -1146,11 +1143,11 @@ try {
   await tp.getByRole('button', { name: 'Transfer', exact: true }).click(); await tp.waitForTimeout(400);
   check(await tp.locator('text=Source account').count() > 0, 'the Transfer sheet has a "Source account" selector');
   // collapsed: only the default source (Everyday) shows, the other chequing (Bills) is hidden
-  check(await tp.getByRole('button', { name: /^Everyday/ }).count() > 0 && await tp.getByRole('button', { name: 'Bills', exact: true }).count() === 0,
+  check(await tp.locator('[role=dialog]').getByRole('button', { name: /^Everyday/ }).count() > 0 && await tp.getByRole('button', { name: 'Bills', exact: true }).count() === 0,
     'the source is collapsed to the default account (Everyday shown, Bills hidden)');
-  await tp.getByRole('button', { name: /^Everyday/ }).first().click(); await tp.waitForTimeout(300);
+  await tp.locator('[role=dialog]').getByRole('button', { name: /^Everyday/ }).first().click(); await tp.waitForTimeout(300);
   check(await tp.getByRole('button', { name: 'Bills', exact: true }).count() > 0, 'tapping the source expands to reveal the other accounts');
-  await tp.getByRole('button', { name: /^Everyday/ }).first().click(); await tp.waitForTimeout(300); // collapse back, keep Everyday
+  await tp.locator('[role=dialog]').getByRole('button', { name: /^Everyday/ }).first().click(); await tp.waitForTimeout(300); // collapse back, keep Everyday
   await tp.locator('input[placeholder="0.00"]').first().fill('500'); await tp.waitForTimeout(200);
   await tp.getByRole('button', { name: 'Add to savings', exact: true }).click();
   const trSaved = await tp.waitForFunction(
@@ -1343,7 +1340,7 @@ try {
   await sp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
   await sp.waitForTimeout(900);
   await sp.getByRole('button', { name: 'Transfer', exact: true }).click(); await sp.waitForTimeout(400);
-  await sp.getByRole('button', { name: /^Everyday/ }).first().click(); await sp.waitForTimeout(300);  // expand
+  await sp.locator('[role=dialog]').getByRole('button', { name: /^Everyday/ }).first().click(); await sp.waitForTimeout(300);  // expand
   check(await sp.getByRole('button', { name: 'Vacation fund', exact: true }).count() > 0,
     'a savings account is offered as a transfer source');
   check(await sp.getByRole('button', { name: 'Locked GIC', exact: true }).count() > 0
@@ -1403,7 +1400,7 @@ try {
     await xp.getByRole('button', { name: 'Transfer', exact: true }).click(); await xp.waitForTimeout(400);
   };
   const pickSource = async (name) => {
-    await xp.getByRole('button', { name: /^Everyday/ }).first().click(); await xp.waitForTimeout(300);
+    await xp.locator('[role=dialog]').getByRole('button', { name: /^Everyday/ }).first().click(); await xp.waitForTimeout(300);
     await xp.getByRole('button', { name, exact: true }).first().click(); await xp.waitForTimeout(300);
   };
   const pickTo = async (name) => {
@@ -1414,7 +1411,7 @@ try {
 
   // 1. cash advance: Visa -> chequing
   await openTransfer();
-  await xp.getByRole('button', { name: /^Everyday/ }).first().click(); await xp.waitForTimeout(300);
+  await xp.locator('[role=dialog]').getByRole('button', { name: /^Everyday/ }).first().click(); await xp.waitForTimeout(300);
   check(await xp.getByRole('button', { name: 'Visa', exact: true }).count() > 0
      && await xp.getByRole('button', { name: 'Line of credit', exact: true }).count() > 0
      && await xp.getByRole('button', { name: 'House fund', exact: true }).count() > 0,
@@ -1784,13 +1781,13 @@ try {
   await rp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
   await rp.waitForTimeout(700);
   await rp.locator('text=Budget').first().click(); await rp.waitForTimeout(500);
-  check(await rp.locator('text=/\\$0\\s*\\/\\s*\\$100/').count() > 0, 'an unapproved month carries nothing (available stays $100)');
+  check(await rp.locator('text=/\\$0\\s*of\\s*\\$100/').count() > 0, 'an unapproved month carries nothing (available stays $100)');
   const rollCard = rp.locator('[role=group][aria-label$=" rollover"]').first();
   check(await rollCard.count() > 0 && /\+\$60/.test(await rollCard.innerText()),
     'the current month asks to approve last month’s leftover (+$60)');
   await rollCard.getByRole('button', { name: /^Roll into / }).click(); await rp.waitForTimeout(500);
   check(await rp.locator('text=/\\+\\$60/').count() > 0, 'once approved, the category shows the carried-over amount (+$60)');
-  check(await rp.locator('text=/\\$0\\s*\\/\\s*\\$160/').count() > 0, 'group total reflects available = planned + carry ($160)');
+  check(await rp.locator('text=/\\$0\\s*of\\s*\\$160/').count() > 0, 'group total reflects available = planned + carry ($160)');
   const rollSaved = await rp.waitForFunction(() => {
     const c = JSON.parse(localStorage.getItem('nima_data_v1')).data.budgetCats.find(x => x.name === 'Rent');
     return c && c.rollOk && Object.values(c.rollOk).filter(v => v === true).length === 2;
@@ -1801,7 +1798,7 @@ try {
   await rp.getByRole('button', { name: 'Previous month' }).first().click(); await rp.waitForTimeout(500);
   await rp.getByRole('switch', { name: 'Roll over Rent' }).first().click(); await rp.waitForTimeout(400);
   await rp.getByRole('button', { name: 'Next month' }).first().click(); await rp.waitForTimeout(500);
-  check(await rp.locator('text=/\\$0\\s*\\/\\s*\\$100/').count() > 0, 'switching the approval off in that month takes the carry back out');
+  check(await rp.locator('text=/\\$0\\s*of\\s*\\$100/').count() > 0, 'switching the approval off in that month takes the carry back out');
   await rollCtx.close();
 
   console.log('debt interest only accrues when overdue:');
@@ -1910,7 +1907,7 @@ try {
   await cp2.locator('[role=dialog]:has-text("Edit debt account")').first()
     .getByRole('button', { name: '✕' }).first().click(); await cp2.waitForTimeout(400);
   await cp2.getByRole('button', { name: 'Budget', exact: true }).click(); await cp2.waitForTimeout(600);
-  check(await cp2.locator('text=/\\$800\\s*\\/\\s*\\$1,000/').count() > 0,
+  check(await cp2.locator('text=/\\$800\\s*of\\s*\\$1,000/').count() > 0,
     'card spending still counts in the month it was spent, whatever cycle it bills on');
   // The Plan screen is month-scoped, so a card opened from it reports THAT month's
   // statement — the next month's cycle is still open and bills the charges made
@@ -1980,10 +1977,10 @@ try {
     `and net worth counts it as a liability ($${liabExp} across both cards)`);
   await cycCtx.close();
 
-  console.log('This month summary gauge (left to spend vs planned budget):');
-  // The cluttered "used of income" tile is now a single segmented gauge: one central
-  // "Left to spend" number measured against the total PLANNED budget (expenses +
-  // savings), never income. Spending/contributions this month reduce what's left.
+  console.log('This month summary (left to spend vs planned budget):');
+  // One dominant "Left to spend" number measured against the total PLANNED budget
+  // (expenses + savings), never income, over a single spent-vs-planned bar; the
+  // categories follow as aligned rows. Spending/contributions reduce what's left.
   const bmCtx = await browser.newContext({ viewport: { width: 430, height: 900 } });
   const mp = await bmCtx.newPage();
   await mp.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded' });
@@ -2018,8 +2015,12 @@ try {
   check(await mp.getByText('Left to spend', { exact: true }).count() > 0, 'the tile shows a single "Left to spend" label');
   // 800 planned − 300 used = 500 left; NOT measured against the $9,999 income
   check(await mp.getByText('$500', { exact: true }).count() > 0, 'the centre shows left-to-spend against the plan ($800 − $300 = $500), not the $9,999 income');
-  check(await mp.getByText('$200', { exact: true }).count() > 0 && await mp.getByText('$100', { exact: true }).count() > 0,
-    'each category is labelled beside its slice with its spend so far ($200 Home, $100 Savings)');
+  check(await mp.getByRole('progressbar', { name: 'Spent of planned' }).getAttribute('aria-valuenow') === '38',
+    'one spent-vs-planned bar under the number ($300 of $800 = 38%)');
+  check(await mp.getByRole('button', { name: 'Groceries, $200 of $500' }).count() > 0
+     && await mp.getByRole('button', { name: 'Emergency, $100 of $300' }).count() > 0,
+    'each category is an aligned row with its spend and budget ($200 of $500, $100 of $300)');
+  check(await mp.locator('svg path[stroke-linecap="round"][stroke-width="15"]').count() === 0, 'the arc gauge is gone');
   await bmCtx.close();
 
   console.log('fresh store shows honest empty states, never a seeded plan:');
@@ -2251,7 +2252,8 @@ try {
   await dsp.getByRole('button', { name: 'Accounts', exact: true }).click(); await dsp.waitForTimeout(500);
   const dsSheet = () => dsp.locator('[role=dialog]:has-text("Edit section")').first();
   const dsNw = () => dsp.evaluate(() => {
-    const lbl = [...document.querySelectorAll('div')].find((d) => d.textContent.trim() === 'Total net worth');
+    const scr = document.querySelector('.screen-accounts') || document;
+    const lbl = [...scr.querySelectorAll('div')].find((d) => d.textContent.trim() === 'Net worth');
     return lbl && lbl.nextElementSibling ? lbl.nextElementSibling.textContent.trim() : '';
   });
   const dsMoney = (t) => parseFloat(String(t).replace(/[^0-9.\-]/g, '')) || 0;
@@ -2279,7 +2281,7 @@ try {
     `the deleted balances leave net worth (${dsNwBefore} -> ${dsNwAfter}, the $900 account gone)`);
 
   // custom: removed outright
-  await dsp.locator('text=Vehicles').first().click(); await dsp.waitForTimeout(500);
+  await dsp.locator('text=Vehicles').last().click(); await dsp.waitForTimeout(500);   // the section header, not the hero's breakdown row
   await dsSheet().getByRole('button', { name: /Delete section/ }).click(); await dsp.waitForTimeout(300);
   await dsSheet().getByRole('button', { name: /Tap again to delete/ }).click(); await dsp.waitForTimeout(600);
   const customGone = await dsp.waitForFunction(
@@ -2304,6 +2306,71 @@ try {
   check(restored && await dsp.getByRole('button', { name: /Rebuilt Savings/ }).count() > 0,
     'restoring a built-in section brings it back to the Accounts screen');
   await dsCtx.close();
+  }
+
+  console.log('onboarding welcome intro (logo entrance + background film):'); {
+  // The welcome screen's logo entrance (onboarding-intro/onboarding-intro.js) is
+  // bound to the welcome root once per mount; the film starts only after the logo
+  // settles, reduced motion never requests it, and leaving welcome releases it.
+  const introCtx = async (opts, block404) => {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 }, ...opts });
+    const pg = await c.newPage();
+    const mp4 = [];
+    pg.on('request', (r) => { if (r.url().endsWith('.mp4')) mp4.push(r.url()); });
+    if (block404) await pg.route('**/*.mp4', (r) => r.fulfill({ status: 404, body: '' }));
+    await pg.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded' });
+    await pg.evaluate(() => localStorage.clear());
+    await pg.reload({ waitUntil: 'domcontentloaded' });
+    await pg.waitForSelector('.nima-intro', { timeout: 15000 }).catch(() => {});
+    return { c, pg, mp4 };
+  };
+  const introState = (pg) => pg.evaluate(() => {
+    const r = document.querySelector('.nima-intro'); if (!r) return null;
+    const v = r.querySelector('video'), a = r.querySelector('.nima-intro__actions'), t = r.querySelector('.nima-intro__motion');
+    return { src: v.getAttribute('src'), paused: v.paused, muted: v.muted, loop: v.loop, inert: !!a.inert,
+      ready: r.dataset.videoReady, toggleHidden: t.hidden, toggleLabel: t.getAttribute('aria-label'),
+      logo: (r.querySelector('.nima-intro__logo img') || {}).getAttribute?.('src') || '',
+      poster: !!r.querySelector('.nima-intro__poster') };
+  });
+  {
+    const { c, pg, mp4 } = await introCtx({});
+    await pg.waitForTimeout(250);
+    let st = await introState(pg);
+    check(!!st && /nima-logo-white\.svg$/.test(st.logo), 'the welcome screen shows the Ni’ma logo artwork');
+    check(!!st && st.inert && st.paused, 'during the logo entrance the controls are held back and the film is not playing yet');
+    await pg.waitForTimeout(2600);
+    st = await introState(pg);
+    check(!!st && !st.inert && /onboarding-loop\.mp4$/.test(st.src || '') && st.muted && st.loop,
+      'after the entrance the controls are live and the muted, looping film has started');
+    check(mp4.length >= 1, 'the film streams from the network once the logo has settled');
+    await pg.locator('.nima-intro__motion').click(); await pg.waitForTimeout(200);
+    st = await introState(pg);
+    check(!!st && st.paused && st.toggleLabel === 'Play background video', 'the pause control pauses the film');
+    await pg.getByRole('button', { name: 'Get started', exact: true }).click(); await pg.waitForTimeout(500);
+    check(await pg.locator('.nima-intro').count() === 0 && await pg.locator('video').count() === 0,
+      'moving past welcome releases the film and the intro');
+    await c.close();
+  }
+  {
+    const { c, pg, mp4 } = await introCtx({ reducedMotion: 'reduce' });
+    await pg.waitForTimeout(400);
+    const st = await introState(pg);
+    check(!!st && !st.inert && !st.src && st.toggleHidden && await pg.getByRole('button', { name: 'Get started', exact: true }).isVisible(),
+      'reduced motion shows the finished welcome screen at once, with no film');
+    await pg.waitForTimeout(2200);
+    check(mp4.length === 0, 'reduced motion never requests the MP4');
+    await c.close();
+  }
+  {
+    const { c, pg } = await introCtx({}, true);
+    await pg.waitForTimeout(2900);
+    const st = await introState(pg);
+    check(!!st && st.ready !== 'true' && st.poster && !st.inert && st.toggleHidden,
+      'a failed film leaves the poster and working controls (and hides the pause control)');
+    await pg.getByRole('button', { name: 'Get started', exact: true }).click(); await pg.waitForTimeout(500);
+    check(await pg.locator('input[placeholder="e.g. Alex"]').count() > 0, 'and Get started still enters setup');
+    await c.close();
+  }
   }
 
   console.log('onboarding (fresh install, no birthday step):'); {
@@ -2387,12 +2454,13 @@ try {
     const { ctx: wCtx, pg: w } = await seed(1470, 850);
     const lv = await w.evaluate(() => {
       const r = (el) => el && el.getBoundingClientRect();
-      const hero = r(document.querySelector('.hg-a > div')), goal = r(document.querySelector('.hg-b .tile-row'));
-      const tiles = [...document.querySelectorAll('.hg-b .tile-row')].map((row) => { const rr = r(row), last = r(row.lastElementChild); return rr.right - last.right; });
-      return { hero: Math.round(hero.top), goal: Math.round(goal.top), slack: Math.max(...tiles.map(Math.round)) };
+      const hero = r(document.querySelector('.hg-a > div')), goal = r(document.querySelector('.hg-b .list-card'));
+      const col = r(document.querySelector('.hg-b'));
+      const slack = Math.max(...[...document.querySelectorAll('.hg-b .list-card')].map((c) => Math.abs(r(c).width - col.width)));
+      return { hero: Math.round(hero.top), goal: Math.round(goal.top), slack: Math.round(slack) };
     });
-    check(lv.hero === lv.goal, `Home: the hero lines up with the first savings-goal card (${lv.hero} vs ${lv.goal})`);
-    check(lv.slack <= 2, `Home: goal / brokerage / debt tiles fill their column (widest gap ${lv.slack}px)`);
+    check(lv.hero === lv.goal, `Home: the hero lines up with the savings-goals card (${lv.hero} vs ${lv.goal})`);
+    check(lv.slack <= 2, `Home: the goal / brokerage / debt cards fill their column (widest gap ${lv.slack}px)`);
     await w.getByRole('button', { name: 'Invest', exact: true }).click(); await w.waitForTimeout(500);
     const iv = await w.evaluate(() => { const a = document.querySelector('.ig-a').getBoundingClientRect(), b = document.querySelector('.ig-b').getBoundingClientRect();
       return [a.top, a.bottom, b.top, b.bottom].map(Math.round); });
@@ -2518,7 +2586,7 @@ try {
     const haveAcct = b.getByRole('button', { name: 'Already have an account?' });
     await haveAcct.waitFor({ timeout: 8000 }).catch(() => {});
     check(await haveAcct.isVisible() && await b.getByRole('button', { name: 'Continue without an account' }).isVisible(),
-      'with sync available the welcome screen offers Get started, Continue without an account, and Already have an account?');
+      'with sync available the welcome screen offers Create an account, Continue without an account, and Already have an account? Sign in');
     check(await b.getByText('About a minute to set up', { exact: false }).count() === 0, 'the welcome screen has no "About a minute" subtext');
     const appShowing = (pg) => pg.evaluate(() => { const n = document.querySelector('nav.tabbar'); return !!n && n.offsetParent !== null; });
     await haveAcct.click(); await b.waitForTimeout(400);
@@ -2627,14 +2695,14 @@ try {
     const keep = d2.getByRole('button', { name: "Keep this device's data" });
     await keep.waitFor({ timeout: 15000 }).catch(() => {});
     check(await keep.isVisible(), 'signing in on a device that already has its own data asks which copy to keep');
-    // "Get started" on a deployment with sync is create-account first, then setup,
-    // and the app (with the new account's vault) only appears at the end.
+    // "Create an account" on a deployment with sync is create-account first, then
+    // setup, and the app (with the new account's vault) only appears at the end.
     const { ctx: eCtx, pg: e } = await device('E', null);
-    await e.getByRole('button', { name: 'Get started', exact: true }).waitFor({ timeout: 8000 }).catch(() => {});
+    await e.getByRole('button', { name: 'Create an account', exact: true }).waitFor({ timeout: 8000 }).catch(() => {});
     await e.waitForTimeout(600);   // let the sync probe land so the welcome knows sync exists
-    await e.getByRole('button', { name: 'Get started', exact: true }).click(); await e.waitForTimeout(450);
+    await e.getByRole('button', { name: 'Create an account', exact: true }).click(); await e.waitForTimeout(450);
     check(await field(e, 'Repeat password').isVisible() && !(await appShowing(e)),
-      '"Get started" opens Create account over the welcome screen');
+      '"Create an account" opens Create account over the welcome screen');
     await field(e, 'Email').fill('new@example.com');
     await field(e, 'New password').fill(PW);
     await field(e, 'Repeat password').fill(PW);

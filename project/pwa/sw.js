@@ -1,5 +1,5 @@
 // Ni'ma PWA service worker
-const CACHE = 'nimah-v87';
+const CACHE = 'nimah-v89';
 const ASSETS = [
   './',
   './index.html',
@@ -15,7 +15,13 @@ const ASSETS = [
   './icon-512.png',
   './icon-maskable-192.png',
   './icon-maskable-512.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  './favicon.svg',
+  './favicon-32.png',
+  './onboarding-intro/onboarding-intro.css',
+  './onboarding-intro/onboarding-intro.js',
+  './onboarding-intro/assets/nima-logo-white.svg',
+  './onboarding-intro/assets/onboarding-poster.jpg'
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -31,6 +37,10 @@ self.addEventListener('fetch', (e) => {
   // Never cache the live price/FX API — always hit the network so quotes stay fresh.
   const url = new URL(req.url);
   if (url.pathname.includes('/api/') || url.pathname.includes('quotes')) return;
+  // The onboarding film streams from the network: byte-range and video requests
+  // must never be answered from (or written into) the cache, and the MP4 is too
+  // big to precache. Offline, the welcome screen keeps its poster.
+  if (req.headers.has('range') || req.destination === 'video' || url.pathname.endsWith('.mp4')) return;
   e.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
