@@ -876,9 +876,28 @@ try {
   await dbp2.getByRole('button', { name: /^Show all/ }).click();
   await dbp2.waitForTimeout(300);
   check(await duePostCount() === 6, 'the expander reveals every due row');
+  // deleting a due occurrence skips it (no entry, no balance change), and Undo brings it back
+  await dbp2.getByRole('button', { name: /^Delete Rent due / }).click();
+  await dbp2.waitForTimeout(300);
+  check(await duePostCount() === 5, 'Delete removes an overdue row from the Due card');
+  const skipSaved = await dbp2.waitForFunction(() => {
+    const d = JSON.parse(localStorage.getItem('nima_data_v1')).data;
+    return d.entries.length === 6 && (d.dueSkips || []).length === 1;
+  }, null, { timeout: 6000 }).then(() => true).catch(() => false);
+  check(skipSaved, 'a deleted due row logs no entry and is remembered as skipped');
+  await dbp2.getByRole('button', { name: 'Undo', exact: true }).click();
+  await dbp2.waitForTimeout(300);
+  check(await duePostCount() === 6, 'Undo brings the deleted due row back');
+  await dbp2.getByRole('button', { name: /^Delete Rent due / }).click();
+  await dbp2.waitForTimeout(300);
+  await dbp2.reload({ waitUntil: 'domcontentloaded' });
+  await dbp2.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
+  await dbp2.waitForTimeout(700);
+  if (await dbp2.getByRole('button', { name: /^Show all/ }).count()) { await dbp2.getByRole('button', { name: /^Show all/ }).click(); await dbp2.waitForTimeout(300); }
+  check(await duePostCount() === 5 && await dbp2.getByRole('button', { name: /^Delete Rent due / }).count() === 0, 'a deleted due row stays gone after reload');
   await dbp2.getByRole('button', { name: 'Post all', exact: true }).click();
   const allPosted = await dbp2.waitForFunction(
-    () => JSON.parse(localStorage.getItem('nima_data_v1')).data.entries.length === 12,
+    () => JSON.parse(localStorage.getItem('nima_data_v1')).data.entries.length === 11,
     null, { timeout: 6000 },
   ).then(() => true).catch(() => false);
   check(allPosted, 'Post all logs every due occurrence in one batch (no id collisions)');
@@ -1367,6 +1386,67 @@ try {
   check(iouSec.label === 'IOU' && iouSec.accounts[0].name === 'Lent to Sam',
     'a stored "Lent" section label is renamed IOU (account names the user typed are kept)');
   await srcCtx.close();
+
+  console.log('transfers carry a category and a goal, linked:');
+  {
+  const glCtx = await browser.newContext({ viewport: { width: 430, height: 900 } });
+  const gp = await glCtx.newPage();
+  await gp.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded' });
+  await gp.evaluate(() => {
+    localStorage.setItem('nima_data_v1', JSON.stringify({ v: 1, data: {
+      acctSections: {
+        chequing:  { label: 'Chequing',  color: '#1C5D4C', accounts: [{ id: 'c1', name: 'Everyday', sub: '', bal: 1000 }] },
+        savings:   { label: 'Savings',   color: '#6BA391', accounts: [{ id: 's1', name: 'Rainy day', sub: '', bal: 3000 }, { id: 's2', name: 'Car fund', sub: '', bal: 800 }] },
+        investing: { label: 'Investing', color: '#1C5D4C', accounts: [] },
+        lent:      { label: 'IOU',       color: '#C9A14A', accounts: [] },
+      },
+      goals: [{ name: 'Rainy', cur: 100, goal: 1000, account: 's1' }, { name: 'New car', cur: 50, goal: 5000, account: 's2', cat: 'Big purchase' }],
+      budgetGroups: [{ name: 'Savings', color: '#5E7CA3', kind: 'savings' }],
+      budgetCats: [
+        { name: 'Emergency savings', group: 'Savings', kind: 'savings', budget: 0 },
+        { name: 'Big purchase', group: 'Savings', kind: 'savings', budget: 0 },
+      ],
+      plan: {}, entries: [] } }));
+  });
+  await gp.goto(`${base}/index.html?add=expense`, { waitUntil: 'domcontentloaded' });
+  await gp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
+  await gp.waitForTimeout(900);
+  await gp.getByRole('button', { name: 'Transfer', exact: true }).click(); await gp.waitForTimeout(400);
+  const goalGrp = gp.getByRole('group', { name: 'Transfer goal' });
+  const catGrp = gp.getByRole('group', { name: 'Transfer category' });
+  check(await goalGrp.getByRole('button', { name: 'Rainy', exact: true }).count() === 1
+     && await goalGrp.getByRole('button', { name: 'New car', exact: true }).count() === 1,
+    'every goal is offered on a transfer, whichever account it lives in');
+  check(await catGrp.getByRole('button', { name: 'Big purchase', exact: true }).count() === 1,
+    'a transfer offers the savings categories');
+  await goalGrp.getByRole('button', { name: 'New car', exact: true }).click(); await gp.waitForTimeout(300);
+  await gp.locator('input[placeholder="0.00"]').first().fill('150'); await gp.waitForTimeout(200);
+  await gp.getByRole('button', { name: 'Add to savings', exact: true }).click();
+  const linked = await gp.waitForFunction(() => {
+    const d = JSON.parse(localStorage.getItem('nima_data_v1')).data; const e = d.entries[0];
+    return e && e.goal === 'New car' && e.cat === 'Big purchase' && e.dest === 'sav:s2'
+      && d.goals.find((g) => g.name === 'New car').cur === 200;
+  }, null, { timeout: 6000 }).then(() => true).catch(() => false);
+  check(linked, 'picking a goal fills its linked category and its account, and the goal fills up');
+  await gp.goto(`${base}/index.html?add=expense`, { waitUntil: 'domcontentloaded' });
+  await gp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
+  await gp.waitForTimeout(900);
+  await gp.getByRole('button', { name: 'Transfer', exact: true }).click(); await gp.waitForTimeout(400);
+  await catGrp.getByRole('button', { name: 'Big purchase', exact: true }).click(); await gp.waitForTimeout(300);
+  check(await gp.evaluate(() => [...document.querySelectorAll('[aria-label="Transfer goal"] button')]
+      .find((b) => b.textContent.trim() === 'New car')?.style.background || '').then((bg) => /brand/.test(bg)),
+    'picking a category selects the goal linked to it');
+  await catGrp.getByRole('button', { name: 'Emergency savings', exact: true }).click(); await gp.waitForTimeout(200);
+  await goalGrp.getByRole('button', { name: 'Rainy', exact: true }).click(); await gp.waitForTimeout(200);
+  await gp.locator('input[placeholder="0.00"]').first().fill('40'); await gp.waitForTimeout(200);
+  await gp.getByRole('button', { name: 'Add to savings', exact: true }).click();
+  const split = await gp.waitForFunction(() => {
+    const d = JSON.parse(localStorage.getItem('nima_data_v1')).data; const e = d.entries[1];
+    return e && e.cat === 'Emergency savings' && e.goal === 'Rainy' && d.goals.find((g) => g.name === 'Rainy').cur === 140;
+  }, null, { timeout: 6000 }).then(() => true).catch(() => false);
+  check(split, 'a transfer can count toward one category and fill an unrelated goal');
+  await glCtx.close();
+  }
 
   console.log('transfers to and from any account, debts included:');
   {

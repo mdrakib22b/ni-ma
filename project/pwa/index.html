@@ -329,7 +329,10 @@
                 </div>
                 <div style="{{ t.amtStyle }}">{{ t.amtS }}</div>
               </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <button onClick="{{ t.onSkip }}" aria-label="{{ t.skipLabel }}" title="Delete" style="{{ skipBtnStyle }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></button>
               <button onClick="{{ t.onPost }}" style="{{ postBtnStyle }}">Post</button>
+              </div>
             </div>
           </sc-for>
           <sc-if value="{{ dueCanExpand }}" hint-placeholder-val="{{ false }}">
@@ -1207,9 +1210,18 @@
           <input value="{{ enOtherSource }}" onChange="{{ onEnOtherSource }}" onInput="{{ onEnOtherSource }}" placeholder="Name this source (e.g. Freelance)" style="width:100%;margin-top:10px;border:none;outline:none;background:var(--card);border-radius:12px;padding:13px 16px;font-family:inherit;font-size:14.5px;font-weight:500;box-shadow:var(--edge);" />
         </sc-if>
 
+        <sc-if value="{{ enShowSavCat }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin:18px 4px 10px;">Category</div>
+          <div role="group" aria-label="Transfer category" style="display:flex;flex-wrap:wrap;gap:8px;">
+            <sc-for list="{{ savCatChips }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ enShowSavingsGoal }}" hint-placeholder-val="{{ false }}">
-          <div style="font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin:18px 4px 10px;">Goal bucket (optional)</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin:18px 4px 10px;">Goal</div>
+          <div role="group" aria-label="Transfer goal" style="display:flex;flex-wrap:wrap;gap:8px;">
             <sc-for list="{{ savingsGoalChips }}" as="c" hint-placeholder-count="3">
               <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
             </sc-for>
@@ -1571,6 +1583,15 @@
             </div>
           </div>
         </div>
+
+        <sc-if value="{{ egShowCat }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin:16px 4px 9px;">Category</div>
+          <div role="group" aria-label="Goal category" style="display:flex;flex-wrap:wrap;gap:8px;">
+            <sc-for list="{{ egCatChips }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
 
         <div style="font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin:16px 4px 9px;">Savings account</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
@@ -3917,7 +3938,7 @@ class Component extends DCLogic {
       enCat: 'Groceries',
       enSource: 'Salary',
       enOtherSource: '',
-      enGoal: 'Emergency Fund',
+      enGoal: 'Emergency Fund', enSavCat:'',
       enDate: this.CUR_YM + '-15',
       enRecur: 'none',
       // ledger + drill views
@@ -3930,7 +3951,7 @@ class Component extends DCLogic {
       swUpdate: false,
       backupDone: false, restoreErr: '',
       catDrill: null, catDrillKind: null,
-      editGoal: null, egName:'', egCur:'', egGoal:'', egAccount:'a_sav1',
+      editGoal: null, egName:'', egCur:'', egGoal:'', egCat:'', egAccount:'a_sav1',
       niEdit:null, niName:'', niType:'TFSA',
       enToAcct:'sav:a_sav1',
       editAcct: null, eaName:'', eaVal:'',
@@ -4009,7 +4030,7 @@ class Component extends DCLogic {
     this.DATA_KEYS = ['entries','plan','budgetGroups','budgetCats','incomeSources','incomePlan',
       'goals','investAccounts','acctSections','brokerDeposits','brokerNames','acctAdjust',
       'customSections','holdings','recurringBuys','debts','setCurrency','setNotifPush',
-      'profileNameOverride','householdName','birthYM','userCurrencies','trackPrefs','demoData','pxHist','lookEtfs','sales'];
+      'profileNameOverride','householdName','birthYM','userCurrencies','trackPrefs','demoData','pxHist','lookEtfs','sales','dueSkips'];
     // transient lock/security UI state
     Object.assign(this.state, {
       locked:false, lockEnabled:false, lockPass:'', lockErr:'', lockBusy:false,
@@ -4097,7 +4118,7 @@ class Component extends DCLogic {
       trackPrefs: null,
       // uploaded ETF constituent breakdowns for the Holdings X-ray tool (durable,
       // so a look-through survives reload without re-uploading). See buildLookThrough().
-      lookEtfs: [], sales: [],
+      lookEtfs: [], sales: [], dueSkips: [],
       demoData: true
     };
   }
@@ -4146,7 +4167,7 @@ class Component extends DCLogic {
       birthYM: /^\d{4}-\d{2}$/.test(String(prefs.birthYM||'')) ? prefs.birthYM : null,
       userCurrencies: cur==='CAD' ? [] : [cur],
       trackPrefs: prefs.track || null,
-      lookEtfs: [], sales: [],
+      lookEtfs: [], sales: [], dueSkips: [],
       demoData: false
     };
   }
@@ -6553,20 +6574,26 @@ class Component extends DCLogic {
     opts = opts || {};
     const ym = opts.month || this.state.selMonth || this.CUR_YM;
     const today = ym + '-' + String(Math.min(new Date().getDate()||15, 28)).padStart(2,'0');
-    this.setState({
+    const next={
       showAdd:true, entryEdit:null,
       enType: opts.type || 'expense',
       enAmount:'', enNote:'',
       enCat: opts.cat || 'Groceries',
       enSource: 'Salary',
-      enGoal: (this.state.goals[0] ? this.state.goals[0].name : ''),
+      enGoal:'', enSavCat:'',
       enDate: opts.date || today,
       enRecur:'none', enOtherSource:'', enExcl:false,
       enTransferKind:'savings', enBroker: (this.brokerList()[0]||''),
       enIncomeDest:this.defaultIncomeDest(), enPayVia:this.defaultIncomeDest(),
       enSrc:this.defaultIncomeDest(), enSrcOpen:false, enDestOpen:false,
       enToAcct:this.defaultTransferDest()
-    });
+    };
+    // a transfer defaults to the first goal in its destination account (with
+    // that goal's category); one opened from a savings category starts there
+    const base={ ...this.state, ...next };
+    const g0=(this.state.goals||[]).find(g=>'sav:'+g.account===next.enToAcct);
+    const link = opts.savCat ? this.transferCatPatch(opts.savCat, base) : (g0 ? this.transferGoalPatch(g0.name, base) : {});
+    this.setState({ ...next, ...link });
   }
   openEntry(id){
     const e=this.state.entries.find(x=>x.id===id); if(!e) return;
@@ -6580,7 +6607,9 @@ class Component extends DCLogic {
       enCat: e.type==='expense' ? e.cat : this.state.enCat,
       enSource: e.type==='income' ? (srcKnown ? e.cat : 'Other') : this.state.enSource,
       enOtherSource: (e.type==='income' && !srcKnown) ? e.cat : '',
-      enGoal: (e.type==='savings' && !dInv && this.state.goals.some(g=>g.name===e.cat)) ? e.cat : '',
+      enGoal: (e.type==='savings' && !dInv)
+        ? (('goal' in e) ? (e.goal||'') : (this.state.goals.some(g=>g.name===e.cat) ? e.cat : '')) : '',
+      enSavCat: (e.type==='savings' && !dInv && this.savCatNames().indexOf(e.cat)>=0) ? e.cat : '',
       enTransferKind: e.type==='debt' ? 'debt' : (e.type==='savings' && dInv) ? 'investment' : 'savings',
       enBroker: dInv || (this.brokerList()[0]||''),
       enToAcct: dAcct || this.defaultTransferDest(),
@@ -6605,7 +6634,8 @@ class Component extends DCLogic {
     seen.forEach((e,key)=>{
       if(e.recur==='annually' && e.date.slice(5,7)!==targetMM) return;
       const mk=(date,i)=>({ id:'proj:'+ym+':'+key+(i?':'+i:''), type:e.type, cat:e.cat, amount:e.amount,
-        note:e.note, date, recur:e.recur, pending:true });
+        note:e.note, date, recur:e.recur, pending:true, dest:e.dest, src:e.src, excl:e.excl,
+        ...(('goal' in e) ? { goal:e.goal } : {}) });
       // a 4-weekly rule can land twice in one month, or on any day of it
       if(e.recur==='fourweekly'){ this.fourWeeklyDatesIn(e.date, ym).forEach((d,i)=>out.push(mk(d,i))); return; }
       out.push(mk(ym+'-'+e.date.slice(8,10), 0));
@@ -6636,8 +6666,11 @@ class Component extends DCLogic {
       showAdd:true, entryEdit:null, enType:p.type, enAmount:String(p.amount),
       enCat: p.type==='expense' ? p.cat : 'Groceries',
       enSource: p.type==='income' ? p.cat : 'Salary',
-      enGoal: p.type==='savings' ? p.cat : (this.state.goals[0]?this.state.goals[0].name:''),
-      enSrc:this.defaultIncomeDest(), enSrcOpen:false, enDestOpen:false,
+      enGoal: p.type==='savings' ? (('goal' in p) ? (p.goal||'') : (this.state.goals.some(g=>g.name===p.cat) ? p.cat : '')) : '',
+      enSavCat: (p.type==='savings' && this.savCatNames().indexOf(p.cat)>=0) ? p.cat : '',
+      enTransferKind:'savings',
+      enToAcct: (p.type==='savings' && this.acctByTag(p.dest)) ? p.dest : this.defaultTransferDest(),
+      enSrc: p.src ? this.normalizeAcctRef(p.src) : this.defaultIncomeDest(), enSrcOpen:false, enDestOpen:false,
       enNote: p.note||'', enDate: p.date, enRecur:'none', enExcl: !!p.excl
     });
   }
@@ -6662,7 +6695,7 @@ class Component extends DCLogic {
       const add=due=>{
         if(due>today) return;   // not due yet — the Upcoming card covers it
         if(!groups.has(gk)) groups.set(gk,[]);
-        groups.get(gk).push({ ...e, date:due, id:'due:'+due+':'+e.id, pending:true });
+        groups.get(gk).push({ ...e, date:due, id:'due:'+due+':'+e.id, pending:true, skipKey:this.recurKey(e)+'@'+due });
       };
       // a 4-weekly rule walks its own cadence — it can be due twice in one month
       if(e.recur==='fourweekly'){ this.fourWeeklyDatesIn(e.date, ym).forEach(add); return; }
@@ -6670,7 +6703,10 @@ class Component extends DCLogic {
       add(ym+'-'+String(day).padStart(2,'0'));
     });
     const out=[];
-    groups.forEach(list=>{
+    const skips=new Set(st.dueSkips||[]);   // occurrences the user deleted from the Due card
+    groups.forEach(all=>{
+      const list=all.filter(x=>!skips.has(x.skipKey));
+      if(!list.length) return;
       list.sort((a,b)=> a.date<b.date?-1:1);
       const t=list[0];
       const posted=(st.entries||[]).filter(e=> e.date.slice(0,7)===ym && e.type===t.type && e.cat===t.cat && Math.abs(e.amount-t.amount)<0.005).length;
@@ -6682,11 +6718,20 @@ class Component extends DCLogic {
   // One-tap post for a due occurrence: logs it exactly like saving from the
   // entry sheet — same delta appliers, same recur tag so next month projects
   // the rule again from this entry.
-  postDueEntry(p){
-    const st=this.state;
+  // The rec for posting a due occurrence: the template's routing, goal and
+  // off-budget flag ride along, so it posts exactly like the entry it repeats.
+  dueRec(p){
     const rec={ type:p.type, cat:p.cat, amount:p.amount, note:p.note||'', date:p.date, recur:p.recur,
       dest: p.dest ? this.normalizeAcctRef(p.dest) : (p.type==='income' ? this.defaultIncomeDest() : null),
       payVia: (p.type==='expense' && p.payVia) ? this.normalizeAcctRef(p.payVia) : null };
+    if(p.src) rec.src=this.normalizeAcctRef(p.src);
+    if('goal' in p) rec.goal=p.goal||'';
+    if(p.excl) rec.excl=true;
+    return rec;
+  }
+  postDueEntry(p){
+    const st=this.state;
+    const rec=this.dueRec(p);
     const id=Math.max(0,...st.entries.map(e=>e.id))+1;
     this.setState({
       entries:[...st.entries,{id,...rec}],
@@ -6697,6 +6742,18 @@ class Component extends DCLogic {
       customSections:this.applyCustomDelta(st.customSections, null, rec),
       debts:this.applyDebtDelta(st.debts,null,rec)
     });
+  }
+  // Delete a due occurrence without posting it: it's a projection, not a stored
+  // entry, so nothing moves — the occurrence is remembered as skipped (durable
+  // `dueSkips`, "<recurKey>@<date>") and the rule keeps projecting next month.
+  // Skips from earlier months are pruned, since the Due card only covers this one.
+  skipDueEntry(p){
+    if(!p || !p.skipKey) return;
+    const ym=this.CUR_YM;
+    const keep=(this.state.dueSkips||[]).filter(k=> k.slice(k.lastIndexOf('@')+1, k.lastIndexOf('@')+8) >= ym);
+    clearTimeout(this._undoT);
+    this._undoT=setTimeout(()=>this.setState({ undoDel:null }), 6000);
+    this.setState({ dueSkips:[...keep, p.skipKey], undoDel:{ ...p, skipKey:p.skipKey, _skip:true } });
   }
   // Post every currently-due occurrence in ONE setState — a loop over
   // postDueEntry would read the same stale this.state each time (setState is
@@ -6711,9 +6768,7 @@ class Component extends DCLogic {
         customSections=st.customSections;
     let nextId=Math.max(0,...entries.map(e=>e.id))+1;
     due.forEach(p=>{
-      const rec={ type:p.type, cat:p.cat, amount:p.amount, note:p.note||'', date:p.date, recur:p.recur,
-        dest: p.dest ? this.normalizeAcctRef(p.dest) : (p.type==='income' ? this.defaultIncomeDest() : null),
-        payVia: (p.type==='expense' && p.payVia) ? this.normalizeAcctRef(p.payVia) : null };
+      const rec=this.dueRec(p);
       entries=[...entries,{id:nextId++,...rec}];
       goals=this.applyGoalDelta(goals,null,rec);
       holdings=this.applyCashDelta(holdings,null,rec);
@@ -6770,7 +6825,7 @@ class Component extends DCLogic {
     const amt=parseFloat(String(st.enAmount).replace(/[^0-9.]/g,''))||0;
     if(amt<=0){ this.setState({showAdd:false}); return; }
     const tk=st.enTransferKind||'savings';
-    let catVal, dest=null, payVia=null, src=null;
+    let catVal, dest=null, payVia=null, src=null, goalVal=null;
     if(st.enType==='expense'){ catVal=st.enCat; payVia=st.enPayVia||this.defaultIncomeDest(); }
     else if(st.enType==='income'){
       catVal = (st.enSource==='Other' && String(st.enOtherSource||'').trim()) ? String(st.enOtherSource).trim() : st.enSource;
@@ -6780,8 +6835,10 @@ class Component extends DCLogic {
     else if(tk==='debt'){ const d=st.debts.find(x=>x.id===st.enDebt); catVal=d?d.name:'Debt'; dest='debt:'+st.enDebt; }
     else {
       const to=this.acctByTag(st.enToAcct);
-      const isSav=String(st.enToAcct||'').indexOf('sav:')===0;
-      catVal=(isSav && st.enGoal) || (to?to.acct.name:'Savings'); dest=st.enToAcct;
+      const g=st.enGoal ? st.goals.find(x=>x.name===st.enGoal) : null;
+      goalVal = g ? g.name : '';
+      const savCat = this.savCatNames().indexOf(st.enSavCat)>=0 ? st.enSavCat : '';
+      catVal = savCat || goalVal || (to?to.acct.name:'Savings'); dest=st.enToAcct;
     }
     // A transfer moves money OUT of a source account, so the source is debited
     // (keeping net worth unchanged); non-transfer entries have no source.
@@ -6793,6 +6850,7 @@ class Component extends DCLogic {
     // that month's budget entirely — stretch the category to cover it.
     const catStart = this.coverCatMonth(st.budgetCats, recType, catVal, date);
     if(src) rec.src=src;
+    if(goalVal!==null) rec.goal=goalVal;   // the goal a transfer fills, apart from its category
     if(st.enExcl) rec.excl=true;   // still moves balances, but kept out of budget tallies
     const pending = !forcePost && this.isFutureDate(date);
     if(pending) rec.pending=true;
@@ -6854,6 +6912,10 @@ class Component extends DCLogic {
     const p=this.state.undoDel; if(!p) return;
     clearTimeout(this._undoT);
     const st=this.state;
+    if(p._skip){   // a deleted due occurrence: just forget the skip
+      this.setState({ dueSkips:(st.dueSkips||[]).filter(k=>k!==p.skipKey), undoDel:null });
+      return;
+    }
     const app = p.pending ? null : p;
     this.setState({
       entries:[...st.entries, p],
@@ -7173,8 +7235,10 @@ class Component extends DCLogic {
   applyGoalDelta(goals, prev, next){
     const g = goals.map(x=>({...x}));
     const adj=(name,delta)=>{ const t=g.find(x=>x.name===name); if(t) t.cur=Math.max(0, Math.round((t.cur+delta)*100)/100); };
-    if(prev && prev.type==='savings') adj(prev.cat, -prev.amount);
-    if(next && next.type==='savings') adj(next.cat, +next.amount);
+    // `goal` names the goal; entries saved before it existed used the category
+    const goalOf = e => ('goal' in e) ? e.goal : e.cat;
+    if(prev && prev.type==='savings') adj(goalOf(prev), -prev.amount);
+    if(next && next.type==='savings') adj(goalOf(next), +next.amount);
     return g;
   }
   // Move cash into/out of a broker's "Cash & settled" based on an entry's dest (inv:<broker>)
@@ -7698,7 +7762,7 @@ class Component extends DCLogic {
   }
   openEditGoal(i){
     const g=this.state.goals[i];
-    this.setState({ editGoal:i, egName:g.name, egCur:String(g.cur), egGoal:String(g.goal), egAccount: g.account || ((this.state.acctSections.savings.accounts[0]||{}).id||'') });
+    this.setState({ editGoal:i, egName:g.name, egCur:String(g.cur), egGoal:String(g.goal), egCat:this.goalCatOf(g), egAccount: g.account || ((this.state.acctSections.savings.accounts[0]||{}).id||'') });
   }
   // Manual balance adjustments are stamped with the real date they were made
   // (stored as ISO so it stays sortable and formats like every other date).
@@ -7732,6 +7796,36 @@ class Component extends DCLogic {
   }
   acctByTag(tag){ return tag ? (this.transferAccts().find(x=>x.tag===tag)||null) : null; }
   // the default transfer destination: the first savings account, else any account
+  // Transfers carry a savings budget category (`cat`) and, separately, the goal
+  // they fill (`goal`). A goal can be linked to a category (`goal.cat`); a goal
+  // named like a savings category is linked to it implicitly.
+  savCatNames(){
+    const ym=this.CUR_YM;
+    return (this.state.budgetCats||[]).filter(c=>c.kind==='savings' && !(c.endDate && c.endDate.slice(0,7)<ym)).map(c=>c.name);
+  }
+  goalCatOf(g){
+    if(!g) return '';
+    const names=this.savCatNames();
+    if(g.cat && names.indexOf(g.cat)>=0) return g.cat;
+    return names.indexOf(g.name)>=0 ? g.name : '';
+  }
+  // Selecting a goal fills in its category and moves the destination to the
+  // goal's savings account; selecting a category picks the goal linked to it.
+  transferGoalPatch(name, st){
+    st=st||this.state;
+    const g=(st.goals||[]).find(x=>x.name===name);
+    if(!g) return { enGoal:'' };
+    const patch={ enGoal:g.name };
+    const c=this.goalCatOf(g); if(c) patch.enSavCat=c;
+    const tag=g.account ? 'sav:'+g.account : '';
+    if(tag && this.acctByTag(tag) && tag!==this.normalizeAcctRef(st.enSrc)){ patch.enToAcct=tag; patch.enExcl=false; }
+    return patch;
+  }
+  transferCatPatch(name, st){
+    st=st||this.state;
+    const g=(st.goals||[]).find(x=>this.goalCatOf(x)===name);
+    return g ? { ...this.transferGoalPatch(g.name, st), enSavCat:name } : { enSavCat:name };
+  }
   defaultTransferDest(){
     const src=this.defaultIncomeDest();
     const all=this.transferAccts().filter(x=>x.tag!==src);
@@ -8949,6 +9043,8 @@ class Component extends DCLogic {
       r.metaStyle = { fontSize:12.5, fontWeight:500, marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color: overdue ? 'var(--dk-warn, #C67A34)' : 'var(--ink-2)' };
       r.rowStyle = { ...r.rowStyle, opacity:1 };
       r.onPost = ()=>this.postDueEntry(e);
+      r.onSkip = ()=>this.skipDueEntry(e);
+      r.skipLabel = 'Delete '+(e.note||e.cat)+' due '+e.date;
       return r;
     });
     const hasDue = dueList.length>0;
@@ -9067,16 +9163,25 @@ class Component extends DCLogic {
         const color = list[0].liability ? '#B5793A' : A;
         enPickGroups.push({ label, dotStyle:pickDot(color),
           tiles:list.filter(x=>matchQ(x.acct.name)).map(x=>mkTile(x.acct.name, color, st.enToAcct===x.tag,
-            { enToAcct:x.tag, enGoal:'', enExcl: !/^(sav|ivs):/.test(x.tag) })) });
+            { enToAcct:x.tag, enExcl: !/^(sav|ivs):/.test(x.tag),
+              enGoal: ((st.goals||[]).find(g=>g.name===st.enGoal && 'sav:'+g.account===x.tag)) ? st.enGoal : '' })) });
       });
     }
     enPickGroups = enPickGroups.filter(g=>g.tiles.length);
     const enPickEmpty = enPickGroups.length===0;
-    const enToSavId = String(st.enToAcct||'').indexOf('sav:')===0 ? st.enToAcct.slice(4) : null;
-    const enShowSavingsGoal = st.enType==='savings' && enTransferKind==='savings' && !!enToSavId;
+    // To account: a savings category (what the Budget counts) and a goal (what
+    // fills up), linked both ways. Every goal is offered, whichever account it's in.
+    const enShowSavingsGoal = st.enType==='savings' && enTransferKind==='savings' && (st.goals||[]).length>0;
     const savingsGoalChips = enShowSavingsGoal
-      ? [{ key:'No bucket', sel:!st.enGoal, onClick:()=>this.setState({enGoal:''}) }]
-          .concat(st.goals.filter(g=>g.account===enToSavId).map(g=>({ key:g.name, sel:st.enGoal===g.name, onClick:()=>this.setState({enGoal:g.name}) })))
+      ? [{ key:'None', sel:!st.enGoal, onClick:()=>this.setState({enGoal:''}) }]
+          .concat(st.goals.map(g=>({ key:g.name, sel:st.enGoal===g.name, onClick:()=>this.setState(this.transferGoalPatch(g.name)) })))
+          .map(c=>({ label:c.key, onClick:c.onClick, style:this.chip(c.sel) }))
+      : [];
+    const enSavCatNames = this.savCatNames();
+    const enShowSavCat = st.enType==='savings' && enTransferKind==='savings' && enSavCatNames.length>0;
+    const savCatChips = enShowSavCat
+      ? [{ key:'None', sel:enSavCatNames.indexOf(st.enSavCat)<0, onClick:()=>this.setState({enSavCat:''}) }]
+          .concat(enSavCatNames.map(n=>({ key:n, sel:st.enSavCat===n, onClick:()=>this.setState(this.transferCatPatch(n)) })))
           .map(c=>({ label:c.key, onClick:c.onClick, style:this.chip(c.sel) }))
       : [];
     const payViaCards = st.debts.map(d=>({ label:d.name, val:'card:'+d.id }));
@@ -9122,7 +9227,7 @@ class Component extends DCLogic {
     const recurChips = this.recurOrder.map(r=>({
       label:this.recurLabel[r], onClick:()=>this.setState({enRecur:r}), style:this.chip(st.enRecur===r)
     }));
-    const enToSav = !!enToSavId;
+    const enToSav = String(st.enToAcct||'').indexOf('sav:')===0;
     const enSavingsTitle = enTransferKind==='investment' ? 'Transfer to investment' : enTransferKind==='debt' ? 'Pay debt' : enToSav ? 'Transfer to savings' : 'Transfer';
     const enSavingsAction = enTransferKind==='investment' ? 'Transfer to investment' : enTransferKind==='debt' ? 'Make payment' : enToSav ? 'Add to savings' : 'Save transfer';
     const enTitleMap = { expense:'Add expense', income:'Add income', savings:enSavingsTitle };
@@ -10785,6 +10890,8 @@ class Component extends DCLogic {
       dueCountLabel: dueList.length===1 ? '1 to post' : (dueList.length+' to post'),
       toggleDueExpand:()=>this.setState({ dueExpanded: !st.dueExpanded }),
       postAllDue:()=>this.postAllDue(),
+      skipBtnStyle:{ border:'none', cursor:'pointer', background:'var(--fill-2)', color:'var(--ink-3)', borderRadius:12,
+        width:34, height:34, padding:0, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 },
       postBtnStyle:{ border:'none', cursor:'pointer', background:'var(--brand-solid)', color:'var(--on-brand)', borderRadius:12,
         padding:'8px 14px', fontFamily:'inherit', fontSize:12.5, fontWeight:500, letterSpacing:'-.01em', flexShrink:0 },
       showUpcoming: st.showUpcoming,
@@ -10827,6 +10934,7 @@ class Component extends DCLogic {
       closeDrill:()=>this.setState({ catDrill:null, catDrillKind:null }),
       addToDrill:()=>{ const c=drill; const inc=drillInc; this.setState({ catDrill:null, catDrillKind:null });
         if(inc){ this.openAddEntry({ type:'income', month:st.selMonth }); this.setState({ enSource:c }); }
+        else if(drillIsSav) this.openAddEntry({ type:'savings', savCat:c, month:st.selMonth });
         else this.openAddEntry({ type:'expense', cat:c, month:st.selMonth }); },
 
       // ----- add/edit entry sheet -----
@@ -10843,7 +10951,7 @@ class Component extends DCLogic {
       tkSavingsStyle:this.segBtn(enTransferKind==='savings'), tkInvestStyle:this.segBtn(enTransferKind==='investment'), tkDebtStyle:this.segBtn(enTransferKind==='debt'),
       setTkSavings:()=>this.setState({enTransferKind:'savings'}), setTkInvest:()=>this.setState({enTransferKind:'investment'}), setTkDebt:()=>this.setState({enTransferKind:'debt'}),
       enShowDest: st.enType==='income', enDestChips,
-      enShowSrc: st.enType==='savings', enSrcChips,
+      enShowSrc: st.enType==='savings', enSrcChips, enShowSavCat, savCatChips,
       enShowPayVia: st.enType==='expense', enPayViaChips,
       enAmtLabel: st.enType==='savings' ? 'Transfer amount' : 'Amount',
       enAmtSign: enSign, enAmtSignStyle:{ fontSize:34, fontWeight:600, color:enSignColor },
@@ -10968,7 +11076,9 @@ class Component extends DCLogic {
         background: egValid?'var(--brand-solid)':'var(--dk-off, #C4C9C2)', color: egValid?'var(--on-brand)':'#fff', borderRadius:18, padding:16,
         fontSize:16, fontWeight:600, fontFamily:'inherit', letterSpacing:'-.01em',
         boxShadow: egValid?'0 12px 28px -12px rgba(28,93,76,.8)':'none' },
-      openAddGoal:()=>this.setState({ editGoal:'new', egName:'', egCur:'', egGoal:'', egAccount:((st.acctSections.savings.accounts[0]||{}).id||'') }),
+      openAddGoal:()=>this.setState({ editGoal:'new', egName:'', egCur:'', egGoal:'', egCat:'', egAccount:((st.acctSections.savings.accounts[0]||{}).id||'') }),
+      egCatChips: [''].concat(this.savCatNames()).map(n=>({ label:n||'None', onClick:()=>this.setState({egCat:n}), style:this.chip((st.egCat||'')===n) })),
+      egShowCat: this.savCatNames().length>0,
       egAccountChips: st.acctSections.savings.accounts.map(a=>({ label:a.name, onClick:()=>this.setState({egAccount:a.id}), style:this.chip(st.egAccount===a.id) })),
       egShowAccount: st.acctSections.savings.accounts.length>0,
       closeEditGoal:()=>this.setState({ editGoal:null }),
@@ -10980,8 +11090,14 @@ class Component extends DCLogic {
         const goal=parseFloat(String(st.egGoal).replace(/[^0-9.]/g,''))||0;
         const name=st.egName.trim();
         if(!name || goal<=0){ this.setState({editGoal:null}); return; }
-        if(egIsNew){ this.setState({ goals:[...st.goals, {name,cur,goal,account:st.egAccount}], editGoal:null }); }
-        else { const next=st.goals.map((g,i)=> i===st.editGoal ? {name,cur,goal,account:st.egAccount} : g); this.setState({ goals:next, editGoal:null }); }
+        const cat=st.egCat||'';
+        if(egIsNew){ this.setState({ goals:[...st.goals, {name,cur,goal,account:st.egAccount,cat}], editGoal:null }); return; }
+        const old=st.goals[st.editGoal];
+        const next=st.goals.map((g,i)=> i===st.editGoal ? {...g,name,cur,goal,account:st.egAccount,cat} : g);
+        // a rename carries the goal's transfers with it
+        const entries = (old && old.name!==name)
+          ? st.entries.map(e=> (e.type==='savings' && 'goal' in e && e.goal===old.name) ? {...e, goal:name} : e) : st.entries;
+        this.setState({ goals:next, entries, editGoal:null });
       },
       deleteGoal:()=>{ const next=st.goals.filter((g,i)=>i!==st.editGoal); this.setState({ goals:next, editGoal:null }); },
 
