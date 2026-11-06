@@ -5,7 +5,7 @@
     constructor(root){
       this.root=root;this.video=root.querySelector('video');this.media=root.querySelector('.nima-intro__media');
       this.logo=root.querySelector('.nima-intro__logo');this.mark=this.logo.querySelector('img');
-      this.actions=root.querySelector('.nima-intro__actions');this.toggle=root.querySelector('.nima-intro__motion');
+      this.actions=root.querySelector('.nima-intro__actions');this.toggle=root.querySelector('.nima-intro__motion')||document.createElement('button');// optional: the app ships no pause control, so a detached stand-in keeps the logic unchanged
       this.preference=matchMedia('(prefers-reduced-motion: reduce)');this.animations=[];this.run=0;this.disposed=false;
       this.onPreference=()=>this.replay();
       this.onVisibility=()=>{

@@ -1,5 +1,5 @@
 // Ni'ma PWA service worker
-const CACHE = 'nimah-v89';
+const CACHE = 'nimah-v90';
 const ASSETS = [
   './',
   './index.html',

@@ -14,7 +14,5 @@
 .nima-intro__button--secondary{background:rgba(16,46,36,.78);border:1px solid rgba(237,235,228,.32);color:#edebe4}
 .nima-intro__signin{width:100%;min-height:44px;padding:10px 4px;border:0;background:transparent;color:#edebe4;font:500 13px 'Geist',-apple-system,system-ui,sans-serif;cursor:pointer}
 .nima-intro__signin span{font-weight:720;text-decoration:underline;text-underline-offset:3px}
-.nima-intro__motion{position:absolute;z-index:3;top:max(20px,calc(env(safe-area-inset-top) + 8px));right:18px;width:36px;height:36px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:rgba(16,46,36,.6);color:#fff;cursor:pointer}
 .nima-intro button:focus-visible{outline:3px solid #fff;outline-offset:4px}
-.nima-intro__motion[hidden]{display:none}
-@media(prefers-reduced-motion:reduce){.nima-intro__video{display:none}.nima-intro__motion{display:none}}
+@media(prefers-reduced-motion:reduce){.nima-intro__video{display:none}}

@@ -2328,7 +2328,7 @@ try {
     const r = document.querySelector('.nima-intro'); if (!r) return null;
     const v = r.querySelector('video'), a = r.querySelector('.nima-intro__actions'), t = r.querySelector('.nima-intro__motion');
     return { src: v.getAttribute('src'), paused: v.paused, muted: v.muted, loop: v.loop, inert: !!a.inert,
-      ready: r.dataset.videoReady, toggleHidden: t.hidden, toggleLabel: t.getAttribute('aria-label'),
+      ready: r.dataset.videoReady, pauseBtn: !!t || !![...r.querySelectorAll('button')].find((b) => /pause|play/i.test(b.getAttribute('aria-label') || '')),
       logo: (r.querySelector('.nima-intro__logo img') || {}).getAttribute?.('src') || '',
       poster: !!r.querySelector('.nima-intro__poster') };
   });
@@ -2343,9 +2343,7 @@ try {
     check(!!st && !st.inert && /onboarding-loop\.mp4$/.test(st.src || '') && st.muted && st.loop,
       'after the entrance the controls are live and the muted, looping film has started');
     check(mp4.length >= 1, 'the film streams from the network once the logo has settled');
-    await pg.locator('.nima-intro__motion').click(); await pg.waitForTimeout(200);
-    st = await introState(pg);
-    check(!!st && st.paused && st.toggleLabel === 'Play background video', 'the pause control pauses the film');
+    check(!!st && !st.paused && !st.pauseBtn, 'the film plays with no pause control over it');
     await pg.getByRole('button', { name: 'Get started', exact: true }).click(); await pg.waitForTimeout(500);
     check(await pg.locator('.nima-intro').count() === 0 && await pg.locator('video').count() === 0,
       'moving past welcome releases the film and the intro');
@@ -2355,7 +2353,7 @@ try {
     const { c, pg, mp4 } = await introCtx({ reducedMotion: 'reduce' });
     await pg.waitForTimeout(400);
     const st = await introState(pg);
-    check(!!st && !st.inert && !st.src && st.toggleHidden && await pg.getByRole('button', { name: 'Get started', exact: true }).isVisible(),
+    check(!!st && !st.inert && !st.src && await pg.getByRole('button', { name: 'Get started', exact: true }).isVisible(),
       'reduced motion shows the finished welcome screen at once, with no film');
     await pg.waitForTimeout(2200);
     check(mp4.length === 0, 'reduced motion never requests the MP4');
@@ -2365,8 +2363,8 @@ try {
     const { c, pg } = await introCtx({}, true);
     await pg.waitForTimeout(2900);
     const st = await introState(pg);
-    check(!!st && st.ready !== 'true' && st.poster && !st.inert && st.toggleHidden,
-      'a failed film leaves the poster and working controls (and hides the pause control)');
+    check(!!st && st.ready !== 'true' && st.poster && !st.inert,
+      'a failed film leaves the poster and working controls');
     await pg.getByRole('button', { name: 'Get started', exact: true }).click(); await pg.waitForTimeout(500);
     check(await pg.locator('input[placeholder="e.g. Alex"]').count() > 0, 'and Get started still enters setup');
     await c.close();
