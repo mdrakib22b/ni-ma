@@ -294,6 +294,18 @@ try {
   check(persisted && after === before + 1, `"Create section" adds & persists a budget group (${before} -> ${after})`);
   check(await page.locator('text=Investment').count() > 0, 'new section appears in the plan list');
 
+  // a section can be a Transfer (savings) section, not only an expense one
+  await page.locator('text=New section').first().click(); await page.waitForTimeout(400);
+  const tsDlg = page.locator('[role=dialog]:has-text("New section")').first();
+  await tsDlg.locator('input[placeholder="e.g. Giving"]').fill('Sinking funds'); await page.waitForTimeout(200);
+  await tsDlg.getByRole('group', { name: 'Section type' }).getByRole('button', { name: 'Transfer' }).click();
+  await tsDlg.getByRole('button', { name: 'Create section' }).click();
+  const tsKind = await page.waitForFunction(() => {
+    const g = (JSON.parse(localStorage.getItem('nima_data_v1')).data.budgetGroups || []).find(x => x.name === 'Sinking funds');
+    return g && g.kind;
+  }, null, { timeout: 6000 }).then(h => h.jsonValue()).catch(() => null);
+  check(tsKind === 'savings', `a new section can be created as a Transfer section (kind: ${tsKind})`);
+
   console.log('debt payoff planner:');
   await page.getByRole('button', { name: 'Open payoff planner' }).click(); await page.waitForTimeout(400);
   const payoffDlg = page.locator('[role=dialog]').filter({ hasText: 'Payoff plan' });
@@ -1359,6 +1371,98 @@ try {
     'a stored "Lent" section label is renamed IOU (account names the user typed are kept)');
   await srcCtx.close();
 
+  console.log('transfers to and from any account, debts included:');
+  {
+  const xtCtx = await browser.newContext({ viewport: { width: 430, height: 900 } });
+  const xp = await xtCtx.newPage();
+  await xp.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded' });
+  await xp.evaluate(() => {
+    localStorage.setItem('nima_data_v1', JSON.stringify({ v: 1, data: {
+      acctSections: {
+        chequing:  { label: 'Chequing',  color: '#1C5D4C', accounts: [{ id: 'c1', name: 'Everyday', sub: '', bal: 1000 }] },
+        savings:   { label: 'Savings',   color: '#6BA391', accounts: [{ id: 's1', name: 'Rainy day', sub: '', bal: 3000 }] },
+        investing: { label: 'Investing', color: '#1C5D4C', accounts: [] },
+        lent:      { label: 'IOU',       color: '#C9A14A', accounts: [] },
+      },
+      customSections: [
+        { id: 'secA', label: 'Property', kind: 'asset', color: '#5E7CA3', accounts: [{ id: 'saH', name: 'House fund', bal: 500 }] },
+        { id: 'secL', label: 'Family loans', kind: 'liability', color: '#A05E7C', accounts: [{ id: 'saL', name: 'Owed to Dad', bal: 900 }] },
+      ],
+      debts: [
+        { id: 'd1', name: 'Visa', glyph: 'VI', color: '#B5793A', balance: 200, apr: 19.99, minType: 'greater', minFixed: 10, minPercent: 2, stmtDay: 1, grace: 21 },
+        { id: 'd2', name: 'Line of credit', glyph: 'LC', color: '#3E7C6B', balance: 1000, apr: 9, minType: 'greater', minFixed: 10, minPercent: 2, stmtDay: 1, grace: 21 },
+      ],
+      budgetGroups: [{ name: 'Savings', color: '#5E7CA3', kind: 'savings' }],
+      budgetCats: [], plan: {}, entries: [] } }));
+  });
+  const store = () => xp.evaluate(() => JSON.parse(localStorage.getItem('nima_data_v1')).data);
+  const openTransfer = async () => {
+    await xp.goto(`${base}/index.html?add=expense`, { waitUntil: 'domcontentloaded' });
+    await xp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
+    await xp.waitForTimeout(900);
+    await xp.getByRole('button', { name: 'Transfer', exact: true }).click(); await xp.waitForTimeout(400);
+  };
+  const pickSource = async (name) => {
+    await xp.getByRole('button', { name: /^Everyday/ }).first().click(); await xp.waitForTimeout(300);
+    await xp.getByRole('button', { name, exact: true }).first().click(); await xp.waitForTimeout(300);
+  };
+  const pickTo = async (name) => {
+    await xp.getByRole('button', { name: 'Choose account' }).first().click(); await xp.waitForTimeout(400);
+    await xp.locator(`[aria-label="${name}"]:visible`).first().click(); await xp.waitForTimeout(400);
+  };
+  const waitEntries = (n) => xp.waitForFunction((k) => (JSON.parse(localStorage.getItem('nima_data_v1')).data.entries || []).length === k, n, { timeout: 6000 }).catch(() => {});
+
+  // 1. cash advance: Visa -> chequing
+  await openTransfer();
+  await xp.getByRole('button', { name: /^Everyday/ }).first().click(); await xp.waitForTimeout(300);
+  check(await xp.getByRole('button', { name: 'Visa', exact: true }).count() > 0
+     && await xp.getByRole('button', { name: 'Line of credit', exact: true }).count() > 0
+     && await xp.getByRole('button', { name: 'House fund', exact: true }).count() > 0,
+    'debts and custom-section accounts are offered as transfer sources');
+  await xp.getByRole('button', { name: 'Visa', exact: true }).first().click(); await xp.waitForTimeout(300);
+  await pickTo('Everyday');
+  await xp.locator('input[placeholder="0.00"]').first().fill('100'); await xp.waitForTimeout(200);
+  await xp.getByRole('button', { name: 'Save transfer', exact: true }).click();
+  await waitEntries(1);
+  let d = await store();
+  check(d.entries[0] && d.entries[0].src === 'debt:d1' && d.entries[0].dest === 'chq:c1' && d.entries[0].excl === true,
+    'a transfer can go from a debt into chequing, and stays off the budget');
+  check(d.debts.find(x => x.id === 'd1').balance === 300 && d.acctSections.chequing.accounts[0].bal === 1100,
+    'drawing from a card raises what it owes (200 -> 300) and credits chequing (1000 -> 1100)');
+
+  // 2. chequing -> custom asset account
+  await openTransfer();
+  await pickTo('House fund');
+  await xp.locator('input[placeholder="0.00"]').first().fill('50'); await xp.waitForTimeout(200);
+  await xp.getByRole('button', { name: 'Save transfer', exact: true }).click();
+  await waitEntries(2);
+  d = await store();
+  check(d.customSections[0].accounts[0].bal === 550 && d.acctSections.chequing.accounts[0].bal === 1050,
+    'a transfer into a custom-section account credits it (500 -> 550) and debits chequing (1100 -> 1050)');
+
+  // 3. chequing -> a custom liability pays it down
+  await openTransfer();
+  await pickTo('Owed to Dad');
+  await xp.locator('input[placeholder="0.00"]').first().fill('100'); await xp.waitForTimeout(200);
+  await xp.getByRole('button', { name: 'Save transfer', exact: true }).click();
+  await waitEntries(3);
+  d = await store();
+  check(d.customSections[1].accounts[0].bal === 800, 'a transfer into a liability account pays it down (900 -> 800)');
+
+  // 4. balance transfer: line of credit pays Visa
+  await openTransfer();
+  await xp.getByRole('button', { name: 'Pay debt', exact: true }).click(); await xp.waitForTimeout(300);
+  await pickSource('Line of credit');
+  await xp.locator('input[placeholder="0.00"]').first().fill('300'); await xp.waitForTimeout(200);
+  await xp.getByRole('button', { name: 'Make payment', exact: true }).click();
+  await waitEntries(4);
+  d = await store();
+  check(d.debts.find(x => x.id === 'd1').balance === 0 && d.debts.find(x => x.id === 'd2').balance === 1300,
+    'one debt can pay another (Visa 300 -> 0, line of credit 1000 -> 1300)');
+
+  await xtCtx.close();
+  }
+
   console.log('condensed category picker:');
   // The scattered category chips are now a single row that opens a grouped picker
   // with a quick "New category" add that persists for future transactions.
@@ -1657,8 +1761,9 @@ try {
   // sections, which would otherwise clobber the seeded store on reload.
   // Seed a rolling category with two prior months of underspend, relative to the
   // browser's current month so it works whatever "today" is:
-  //   month-2: budget 100, spent 60  -> +40
-  //   month-1: budget 100, spent 80  -> +20   => carry +60, available 160
+  //   month-2: budget 100, spent 60  -> +40 (approved, so it carries)
+  //   month-1: budget 100 + 40, spent 80 -> +60, not yet approved
+  // Rollover is never automatic: until month-1 is approved, nothing carries.
   const rollCtx = await browser.newContext({ viewport: { width: 430, height: 900 } });
   const rp = await rollCtx.newPage();
   await rp.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded' });
@@ -1668,7 +1773,7 @@ try {
     const m2 = ym(-2), m1 = ym(-1);
     localStorage.setItem('nima_data_v1', JSON.stringify({ v: 1, data: {
       budgetGroups: [{ name: 'Home', color: '#B0763F', kind: 'expense' }],
-      budgetCats: [{ name: 'Rent', group: 'Home', kind: 'expense', budget: 100, endDate: null, roll: true, rollStart: m2 }],
+      budgetCats: [{ name: 'Rent', group: 'Home', kind: 'expense', budget: 100, endDate: null, roll: true, rollStart: m2, rollOk: { [m2]: true } }],
       plan: {},
       entries: [
         { id: 1, type: 'expense', cat: 'Rent', amount: 60, date: m2 + '-10', note: '', recur: 'none' },
@@ -1679,8 +1784,24 @@ try {
   await rp.waitForFunction(() => (document.querySelector('#dc-root')?.childElementCount || 0) > 0, null, { timeout: 15000 }).catch(() => {});
   await rp.waitForTimeout(700);
   await rp.locator('text=Budget').first().click(); await rp.waitForTimeout(500);
-  check(await rp.locator('text=/\\+\\$60/').count() > 0, 'rolling category shows the carried-over amount (+$60)');
+  check(await rp.locator('text=/\\$0\\s*\\/\\s*\\$100/').count() > 0, 'an unapproved month carries nothing (available stays $100)');
+  const rollCard = rp.locator('[role=group][aria-label$=" rollover"]').first();
+  check(await rollCard.count() > 0 && /\+\$60/.test(await rollCard.innerText()),
+    'the current month asks to approve last month’s leftover (+$60)');
+  await rollCard.getByRole('button', { name: /^Roll into / }).click(); await rp.waitForTimeout(500);
+  check(await rp.locator('text=/\\+\\$60/').count() > 0, 'once approved, the category shows the carried-over amount (+$60)');
   check(await rp.locator('text=/\\$0\\s*\\/\\s*\\$160/').count() > 0, 'group total reflects available = planned + carry ($160)');
+  const rollSaved = await rp.waitForFunction(() => {
+    const c = JSON.parse(localStorage.getItem('nima_data_v1')).data.budgetCats.find(x => x.name === 'Rent');
+    return c && c.rollOk && Object.values(c.rollOk).filter(v => v === true).length === 2;
+  }, null, { timeout: 6000 }).then(() => true).catch(() => false);
+  check(rollSaved, 'the approval persists on the category');
+  check(await rp.locator('[role=group][aria-label$=" rollover"]:visible').count() === 0,
+    'a decided month stops asking on the current month');
+  await rp.getByRole('button', { name: 'Previous month' }).first().click(); await rp.waitForTimeout(500);
+  await rp.getByRole('switch', { name: 'Roll over Rent' }).first().click(); await rp.waitForTimeout(400);
+  await rp.getByRole('button', { name: 'Next month' }).first().click(); await rp.waitForTimeout(500);
+  check(await rp.locator('text=/\\$0\\s*\\/\\s*\\$100/').count() > 0, 'switching the approval off in that month takes the carry back out');
   await rollCtx.close();
 
   console.log('debt interest only accrues when overdue:');
